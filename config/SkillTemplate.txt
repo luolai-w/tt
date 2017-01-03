@@ -1,0 +1,1354 @@
+
+
+[BuffTemplate]
+<Header>
+#include "IBuff.h"
+class $ClassName$ : public BaseBuffT<$ClassName$>
+{
+public:
+	static const char* NAME;
+	static const wchar_t* WNAME;
+	$ClassName$();
+	void OnBegin( Actor * actor ) override;
+	void OnBeginAgain( IBuff * pNewBuf ) override;
+	void OnEnd( IBuff ** ppNewBuff ) override;
+	void Update() override;
+	int GetLayerCount() override;
+	float GetAttribute( const char* name ) override;
+};
+</Header>
+
+<Source>
+#include "stdafx.h"
+const char* $ClassName$::NAME = "$ClassCName$";
+const wchar_t* $ClassName$::WNAME = L"$ClassCName$";
+$ClassName$::$ClassName$()
+{
+    isFixed = true;
+    isUnique = true;
+    isHidden = false;
+    isForever = true;
+}
+void $ClassName$::OnBegin( Actor * actor )
+{
+    __super::OnBegin( actor );
+}
+void $ClassName$::OnBeginAgain( IBuff * pNewBuf )
+{
+    __super::OnBeginAgain( pNewBuf );
+}
+void $ClassName$::OnEnd( IBuff ** ppNewBuff )
+{
+    __super::OnEnd( ppNewBuff );
+}
+void $ClassName$::Update()
+{
+    __super::Update();
+}
+int $ClassName$::GetLayerCount()
+{
+    return __super::GetLayerCount();
+}
+float $ClassName$::GetAttribute( const char* name )
+{
+	return __super::GetAttribute( name );
+}
+</Source>
+
+[SkillTemplate]
+<Header>
+
+#include "BaseSkill.h"
+
+class $SkillName$ : public BaseSkillT<$SkillName$>
+{
+	SafeInt startFrame;
+	SafeInt actionFrame;
+	SafeInt totalFrame;
+public:
+	$SkillName$();
+	const char *GetTypeName() { return "$SkillName$"; }
+	void Start() override;
+	void Cancel() override;
+	void Update() override;
+	void GetCustomData( ByteArray& buf ) override;
+	float GetChargePercent() override;
+	virtual FLOAT GetCastingTotalTime();
+	virtual FLOAT GetCastingPercent();
+	//virtual const char * GetIndicatorName();
+	virtual void GetIndicatorParam(FLOAT * params, int maxLen);
+	float GetAttribute( const char* name ) override;
+};
+</Header>
+
+<Source>
+#include "stdafx.h"
+#include "Actor.h"
+#include "SimGlobal.h"
+#include "GlobalConfig.h"
+#include "ActorManager.h"
+#include "SafePrimitiveValue.h"
+
+$SkillName$::$SkillName$()
+{
+    skillCastType = SKILL_CAST_POSITION;
+    attackRange = 999.0f;
+    _AutoCDByLevel( $HeroName$_config::$SkillADUpperCase$::$SkillADLowerCase$_cd );
+    _AutoMPByLevel( $HeroName$_config::$SkillADUpperCase$::$SkillADLowerCase$_mp );
+	INIT_SAFE_VALUE(startFrame , -1);
+	INIT_SAFE_VALUE(actionFrame, -1);
+	INIT_SAFE_VALUE(totalFrame, -1);
+
+    SetFlag( SkillFlag::CAN_TARGET_MAP_OBSTACLE );
+    
+}
+void $SkillName$::Start()
+{
+	if(bIsCasting) return;
+	bIsCasting = true;
+	
+    owner->disableAutoAttack.Set( true );
+	owner->FaceTo(targetPosition);
+    owner->StopMove();
+    owner->StopAttack();
+	
+    
+    startFrame = sg->frame;
+    actionFrame = startFrame + sg->GetSecondFrame( 15.0f / 30.0f );
+    totalFrame = startFrame + sg->GetSecondFrame( 30.0f / 30.0f );
+	_ResetPreCast(actionFrame);
+	ResetCD();
+	UseMp();
+}
+
+void $SkillName$::Cancel()
+{
+	if(!bIsCasting) return;
+	bIsCasting = false;
+    owner->disableAutoAttack.Set( false );
+}
+void $SkillName$::Update()
+{
+    __super::Update();
+    if( !IsCasting() ) return;
+    if( sg->frame == actionFrame )
+    {
+    }
+    
+	if( sg->frame >= totalFrame || ( sg->frame >= actionFrame && ( owner->IsAttacking() || owner->IsMoving() || IsLocked() || (owner->GetPreCastingSkill() && owner->GetPreCastingSkill() != this)) ) )
+    {
+        Cancel();
+        return;
+    }
+}
+void $SkillName$::GetCustomData( ByteArray& buf ){}
+float $SkillName$::GetChargePercent()
+{
+    auto start = int(startFrame);
+    auto end = (int)actionFrame;
+
+    auto percent = 0.0f;
+
+    if( end != start )
+        percent = ( float )( sg->frame - 1 - start ) / ( end - start );
+
+    return percent;
+}
+FLOAT $SkillName$::GetCastingPercent()
+{
+	int now = sg->frame - startFrame - 1;
+	return (FLOAT)now/(FLOAT)(totalFrame - startFrame);
+}
+
+FLOAT $SkillName$::GetCastingTotalTime()
+{
+	return (FLOAT)(totalFrame - startFrame) * sg->FRAME_TIME;
+}
+
+void $SkillName$::GetIndicatorParam(FLOAT * params, int maxLen)
+{
+	if(maxLen > 0)
+		params[0] = attackRange;
+	if(maxLen > 1)
+		params[1] = 0.0f;
+	if(maxLen > 2)
+		params[2] = 0.0f;
+	if(maxLen > 3)
+		params[3] = 0.0f;
+	if(maxLen > 4)
+		params[4] = 0.0f;
+}
+
+float $SkillName$::GetAttribute( const char* name )
+{
+    return __super::GetAttribute( name );
+}
+</Source>
+
+[RunSkillTemplate]
+<Header>
+#include "BaseSkill.h"
+class $SkillName$ : public BaseSkillT<$SkillName$>
+{
+	SafeInt startFrame;//开始起冲准备动作
+	SafeInt hitFrame;//前摇动作结束，开始冲刺
+	SafeInt hit2Frame;//开攻击前摇动作开始
+	SafeInt hit3Frame;//攻击前摇结束，冲刺结束，攻击后摇动作开始
+	SafeInt totalFrame;//后摇结束
+	SafeInt nAnim;
+	SafeBool m_bLock;
+public:
+	enum AnimStatus
+	{
+		START_ANIM,//startFrame~hitFrame
+		RUN_ANIM,//hitFrame~hit2Frame
+		HIT_ANIM,//hit2Frame~hit3Frame
+		END_ANIM//hit3~totalFrame
+	};
+	$SkillName$();
+	const char *GetTypeName() { return "$SkillName$"; }
+	void Start() override;
+	void Cancel() override;
+	void Update() override;
+	void GetCustomData( ByteArray& buf ) override;
+	float GetChargePercent() override;
+	virtual FLOAT GetCastingTotalTime();
+	virtual FLOAT GetCastingPercent();
+	//virtual const char * GetIndicatorName();
+	virtual void GetIndicatorParam(FLOAT * params, int maxLen);
+	float GetAttribute( const char* name ) override;
+	void SetStaus(AnimStatus s);
+	void OnHit(Actor * a);
+	void Lock();
+	void Unlock();
+private:
+	AnimStatus status;
+};
+
+#include "IBuff.h"
+class $ClassName$_run : public TowardTargetPositionRunT<$ClassName$_run>
+{
+public:
+	static const char* NAME;
+	static const wchar_t* WNAME;
+	$SkillName$_run(Actor* _owner, Actor* _target, float _speed, float _hitT, float offset = 0.0f);
+	void OnBegin(Actor * actor) override;
+	void OnArrived() override;
+	void Update() override;
+	bool OnHit(Actor * a) override;
+	void OnEnd(IBuff ** ppNewBuff) override;
+private:
+	bool bLockedTime;
+	int lockedEndFrame;
+	FLOAT minTime;
+
+};
+</Header>
+
+<Source>
+#include "stdafx.h"
+#include "Actor.h"
+#include "SimGlobal.h"
+#include "GlobalConfig.h"
+#include "ActorManager.h"
+#include "SafePrimitiveValue.h"
+$SkillName$::$SkillName$()
+{
+	skillCastType = SKILL_CAST_TARGET;
+	attackRange = 6.0f;
+	_AutoCDByLevel($HeroName$_config::$SkillADUpperCase$::$SkillADLowerCase$_cd);
+	_AutoMPByLevel($HeroName$_config::$SkillADUpperCase$::$SkillADLowerCase$_mp);
+	INIT_SAFE_VALUE(startFrame , -1);
+	INIT_SAFE_VALUE(hitFrame, -1);
+	INIT_SAFE_VALUE(hit2Frame, -1);
+	INIT_SAFE_VALUE(totalFrame, -1);
+	INIT_SAFE_VALUE(hit3Frame, -1);
+	INIT_SAFE_VALUE(nAnim, 0);
+	INIT_SAFE_VALUE(m_bLock, false);
+	status = START_ANIM;
+	SetFlag( SkillFlag::CAN_TARGET_MAP_OBSTACLE | SkillFlag::MOVE_SELF_SKILL);
+}
+void $SkillName$::Start()
+{
+	if (bIsCasting) return;
+	bIsCasting = true;
+	Actor * _target = sg->actorManager->GetActorById(targetId);
+	if (_target)
+		owner->FaceTo(_target->GetPos());
+	owner->StopAttack();
+	owner->StopMove();
+	Lock();
+	owner->disableAutoAttack.Set(true);
+	owner->GetCommandAI()->ClearCommandQueue();
+	startFrame = sg->frame;
+	//hitFrame = startFrame + sg->GetSecondFrame(15.0f / 30.0f);
+	hitFrame = (int)startFrame;
+	hit2Frame = (int)hitFrame;
+	hit3Frame = hit2Frame + sg->GetSecondFrame(5.0f / 30.0f);
+	totalFrame = hit2Frame + sg->GetSecondFrame(15.0f / 30.0f);
+	_ResetPreCast(hitFrame);
+	_ResetSprCast(hitFrame + 4000);
+	SetStaus($SkillName$::START_ANIM);
+	ResetCD();
+	UseMp();
+}
+void $SkillName$::Cancel()
+{
+	if (!bIsCasting) return;
+	bIsCasting = false;
+	owner->disableAutoAttack.Set(false);
+	_ResetSprCast(-1);
+	Unlock();
+	if (owner->HasBuff($SkillName$_run::GetClassBuffId()))
+		owner->RemoveBuff($SkillName$_run::GetClassBuffId());
+	Actor * target = sg->actorManager->GetActorById(targetId);
+	if (target && target->IsLiving() && target->CanBeAttacked())
+	{
+		owner->PushCommand(Command::AttackTarget(targetId), false);
+	}
+
+}
+void $SkillName$::Lock()
+{
+	if (!m_bLock)
+	{
+		m_bLock = true;
+		owner->disableAttack.Set(m_bLock);
+		owner->disableMove.Set(m_bLock);
+	}
+}
+void $SkillName$::Unlock()
+{
+	if (m_bLock)
+	{
+		m_bLock = false;
+		owner->disableAttack.Set(m_bLock);
+		owner->disableMove.Set(m_bLock);
+	}
+}
+void $SkillName$::Update()
+{
+	__super::Update();
+	if (!IsCasting()) return;
+	Actor * _target = sg->actorManager->GetActorById(targetId);
+	if (status != $SkillName$::END_ANIM && (!_target || !_target->IsLiving()))
+	{
+		Cancel();
+		return;
+	}
+	if (sg->frame == hitFrame)
+	{
+		SetStaus($SkillName$::RUN_ANIM);
+		owner->FaceTo(_target->GetPos());
+		owner->AddBuff(new $SkillName$_run(owner, _target, 25.0f, (hit3Frame - hit2Frame)/sg->FRAME_PER_SECOND, -1.5f));
+	}
+	if (sg->frame >= hitFrame && !owner->HasBuff($SkillName$_run::GetClassBuffId()))
+	{
+		if (status == $SkillName$::RUN_ANIM)
+		{
+			Cancel();
+			return;
+		}
+	}
+	if (status == $SkillName$::HIT_ANIM)
+	{
+		if (sg->frame == hit3Frame)
+		{
+			OnHit(_target);
+			SetStaus($SkillName$::END_ANIM);
+		}
+	}
+	if (status == $SkillName$::END_ANIM)
+	{
+		if (sg->frame >= totalFrame || (sg->frame >= hit3Frame && (owner->IsAttacking() || owner->IsMoving() || IsLocked() || (owner->GetPreCastingSkill() && owner->GetPreCastingSkill() != this))))
+		{
+			Cancel();
+			return;
+		}
+	}
+}
+void $SkillName$::OnHit(Actor *a)
+{
+	if (!a || !a->IsLiving() || a->cantBeAttacked) return;
+	if ((a->GetPos() - owner->GetPos()).GetSqrLength() > 3.0f * 3.0f) return;
+	if (!a->DelSkillFreeDefense())
+	{
+		//Damage _dmg = Damage::SkillDamage(owner, R_SKILL_ID);
+		//_dmg.physicalDamage = MeiLing_Config::R::rw_dmg[level - 1] + MeiLing_Config::R::rw_multiple[level - 1] * owner->GetPhysicalAttack();
+		////skill hit effect
+		//a->DealDamage(_dmg);
+	}
+}
+void $SkillName$::SetStaus(AnimStatus s)
+{
+	if (status == s) return;
+	status = s;
+	switch (status)
+	{
+	case START_ANIM:
+		nAnim = 0;
+		break;
+	case RUN_ANIM:
+		nAnim = 1;
+		break;
+	case HIT_ANIM:
+		{
+			nAnim = 2;
+			int hit3Offset = hit3Frame - hit2Frame;
+			int totalOffset = totalFrame  - hit2Frame;
+			hit2Frame = sg->frame;
+			hit3Frame = hit2Frame + hit3Offset;
+			totalFrame = hit2Frame + totalOffset;
+		}
+		break;
+	case END_ANIM:
+		_ResetSprCast(-1);
+		Unlock();
+		//nAnim = 3;//一般攻击前摇和后摇是在一个动作里，所以不用切换动作
+	default:
+		break;
+	}
+}
+void $SkillName$::GetCustomData(ByteArray& buf)
+{
+	buf.WriteInt(nAnim);
+}
+float $SkillName$::GetChargePercent()
+{
+	auto start = int(startFrame);
+	auto end = (int)hitFrame;
+	auto percent = 0.0f;
+	if( end != start )
+	percent = ( float )( sg->frame - 1 - start ) / ( end - start );
+	return percent;
+}
+FLOAT $SkillName$::GetCastingPercent()
+{
+	int now = sg->frame - startFrame - 1;
+	return (FLOAT)now/(FLOAT)(totalFrame - startFrame);
+}
+FLOAT $SkillName$::GetCastingTotalTime()
+{
+	return (FLOAT)(totalFrame - startFrame) * sg->FRAME_TIME;
+}
+void $SkillName$::GetIndicatorParam(FLOAT * params, int maxLen)
+{
+	if(maxLen > 0)
+	params[0] = attackRange;
+	if(maxLen > 1)
+	params[1] = 0.0f;
+	if(maxLen > 2)
+	params[2] = 0.0f;
+	if(maxLen > 3)
+	params[3] = 0.0f;
+	if(maxLen > 4)
+	params[4] = 0.0f;
+}
+float $SkillName$::GetAttribute( const char* name )
+{
+	int nlv = level > 1 ? level : 1;
+	return __super::GetAttribute( name );
+}
+
+
+const char* $ClassName$_run::NAME = "$ClassCName$（冲刺）";
+const wchar_t* $ClassName$_run::WNAME = L"$ClassCName$（冲刺）";
+$ClassName$_run::$ClassName$_run(Actor* _owner, Actor* _target, float _speed, float _hitT, float offset)
+{
+	nTargetId = _target->GetId();
+	offsetPos = offset;
+	fStepLen = _speed * sg->FRAME_TIME;
+	passDmgRange = 4.0f;
+	m_fBodyLength = fStepLen + 3.0f;
+	bLockedTime = false;
+	lockedEndFrame = -1;
+	minTime = _hitT;
+
+}
+void $ClassName$_run::OnBegin(Actor * actor)
+{
+	__super::OnBegin(actor);
+	owner->noObstacle.Set(true);
+}
+void $ClassName$_run::Update()
+{
+	Actor* _target = sg->actorManager->GetActorById(nTargetId);
+	if (_target && _target->IsLiving())
+	{
+		FLOAT _restSqrDis = (v2TargetPos - owner->GetPos()).GetSqrLength();
+		FLOAT _restLen = 0.0f;
+		if (_restSqrDis > 0.0f)
+			_restLen = SimMath::Sqrt(_restSqrDis);
+		//_restLen += offsetPos;
+		if (_restLen < 0.0f) _restLen = 0.0f;
+		int _minFrame = SimMath::CeilToInt(minTime * sg->FRAME_PER_SECOND);
+		if (!bLockedTime && _restLen <= _minFrame * fStepLen)
+		{
+			bLockedTime = true;
+			(($SkillName$ *)owner->GetSkill(R_SKILL_ID))->SetStaus($SkillName$::HIT_ANIM);
+			lockedEndFrame = sg->frame + _minFrame;
+		}
+		if (bLockedTime)
+		{
+
+			fStepLen = lockedEndFrame > sg->frame ? _restLen / (lockedEndFrame - sg->frame) : _restLen;
+		}
+	}
+	__super::Update();
+}
+void $ClassName$_run::OnArrived()
+{
+	//$SkillName$ * skill = (($SkillName$ *)owner->GetSkill(R_SKILL_ID));
+	//if (skill)
+	//	skill->SetStaus($SkillName$::HIT_ANIM);
+	if (bLockedTime)
+	{
+		if (sg->frame >= lockedEndFrame)
+		{
+			owner->RemoveBuff(GetBuffId());
+			return;
+		}
+	}
+	else
+	{
+		owner->RemoveBuff(GetBuffId());
+		return;
+	}
+	__super::OnArrived();
+}
+bool $ClassName$_run::OnHit(Actor * a)
+{
+	return true;
+}
+void $ClassName$_run::OnEnd(IBuff ** ppNewBuff)
+{
+	owner->noObstacle.Set(false);
+	__super::OnEnd(ppNewBuff);
+}
+</Source>
+
+[RunBuffTemplate]
+<Header>
+#include "IBuff.h"
+class $ClassName$ : public TowardTargetPositionRunT<$ClassName$>
+{
+public:
+	static const char* NAME;
+	static const wchar_t* WNAME;
+	$ClassName$(Actor* _owner, Actor* _target, float _speed, float _hitT, float offset = 0.0f);
+	void OnBegin(Actor * actor) override;
+	void OnArrived() override;
+	void Update() override;
+	bool OnHit(Actor * a) override;
+	void OnEnd(IBuff ** ppNewBuff) override;
+private:
+	bool bLockedTime;
+	int lockedEndFrame;
+	FLOAT minTime;
+
+};
+</Header>
+<Source>
+const char* $ClassName$::NAME = "$ClassCName$";
+const wchar_t* $ClassName$::WNAME = L"$ClassCName$";
+$ClassName$::$ClassName$(Actor* _owner, Actor* _target, float _speed, float _hitT, float offset)
+{
+	nTargetId = _target->GetId();
+	offsetPos = offset;
+	fStepLen = _speed * sg->FRAME_TIME;
+	passDmgRange = 4.0f;
+	m_fBodyLength = fStepLen + 3.0f;
+	bLockedTime = false;
+	lockedEndFrame = -1;
+	minTime = _hitT;
+
+}
+void $ClassName$::OnBegin(Actor * actor)
+{
+	__super::OnBegin(actor);
+	owner->noObstacle.Set(true);
+}
+void $ClassName$::Update()
+{
+	Actor* _target = sg->actorManager->GetActorById(nTargetId);
+	if (_target && _target->IsLiving())
+	{
+		FLOAT _restSqrDis = (v2TargetPos - owner->GetPos()).GetSqrLength();
+		FLOAT _restLen = 0.0f;
+		if (_restSqrDis > 0.0f)
+			_restLen = SimMath::Sqrt(_restSqrDis);
+		//_restLen += offsetPos;
+		if (_restLen < 0.0f) _restLen = 0.0f;
+		int _minFrame = SimMath::CeilToInt(minTime * sg->FRAME_PER_SECOND);
+		if (!bLockedTime && _restLen <= _minFrame * fStepLen)
+		{
+			bLockedTime = true;
+			//(($SkillName$ *)owner->GetSkill(R_SKILL_ID))->SetStaus($SkillName$::HIT_ANIM);//切换打击动作
+			lockedEndFrame = sg->frame + _minFrame;
+		}
+		if (bLockedTime)
+		{
+
+			fStepLen = lockedEndFrame > sg->frame ? _restLen / (lockedEndFrame - sg->frame) : _restLen;
+		}
+	}
+	__super::Update();
+}
+void $ClassName$::OnArrived()
+{
+	if (bLockedTime)
+	{
+		if (sg->frame >= lockedEndFrame)
+		{
+			//(($SkillName$ *)owner->GetSkill(R_SKILL_ID))->SetStaus($SkillName$::END_ANIM);//切换打击后摇动作
+			owner->RemoveBuff(GetBuffId());
+			return;
+		}
+	}
+	else
+	{
+		//(($SkillName$ *)owner->GetSkill(R_SKILL_ID))->SetStaus($SkillName$::END_ANIM);//切换打击后摇动作
+		owner->RemoveBuff(GetBuffId());
+		return;
+	}
+	__super::OnArrived();
+}
+bool $ClassName$::OnHit(Actor * a)
+{
+	return true;
+}
+void $ClassName$::OnEnd(IBuff ** ppNewBuff)
+{
+	owner->noObstacle.Set(false);
+	__super::OnEnd(ppNewBuff);
+}
+</Source>
+
+[NormalTemplate]
+<Header>
+
+#include "HeroThreePhaseNormalSkill.h"
+
+class $ClassName$ : public HeroThreePhaseNormalSkill
+{
+	SafeInt animationType;
+	SafeBool _isPhyCrit, _isMagCrit;
+public:
+	const char *GetTypeName() override { return "$ClassName$"; }
+
+	$ClassName$();    
+	void GetCustomData( ByteArray& buf ) override;
+	void OnStartNewAttack() override;
+	void OnHit() override;
+};
+</Header>
+<Source>
+#include "stdafx.h"
+#include "Damage.h"
+#include "SimGlobal.h"
+#include "SimFrameEvent.h"
+#include "SafePrimitiveValue.h"
+#include "ActorManager.h"
+#include "Actor.h"
+
+$ClassName$::$ClassName$()
+{
+    step1Percent = 0.23f;
+	INIT_SAFE_VALUE(animationType, 0);
+	INIT_SAFE_VALUE(_isPhyCrit, false);
+	INIT_SAFE_VALUE(_isMagCrit, false);
+}
+void $ClassName$::GetCustomData( ByteArray& buf )
+{
+    buf.WriteByte( (int)animationType );
+}
+void $ClassName$::OnStartNewAttack()
+{
+	__super::OnStartNewAttack();
+	_isPhyCrit = _isMagCrit = false;
+	if (!IActorTowerCommon::IsTowerId( targetId ))
+		owner->GetNumCtrl()->CalcCriticalAttack(_isPhyCrit, _isMagCrit);
+	bIsCriticalAttack = _isPhyCrit;
+	animationType++;
+	if(animationType > 1) animationType = 0;
+	if(bIsCriticalAttack)
+		animationType = 2;
+}
+void $ClassName$::OnHit()
+{
+	switch((int)animationType)
+	{
+	case 0: SimFrameEvent::CreateEffectAtPosition( L"Hero_Nor_dg_1", owner->GetPos(), owner->GetDir() ); break;
+	case 1: SimFrameEvent::CreateEffectAtPosition( L"Hero_Nor_dg_2", owner->GetPos(), owner->GetDir() ); break;
+	case 2: SimFrameEvent::CreateEffectAtPosition( L"Hero_Nor_dg_critical", owner->GetPos(), owner->GetDir() ); break;
+	default: break;
+	}
+    //===========================获取目标
+    IActorTowerCommon * target = IActorTowerCommon::GetCommonInterfaceById( targetId );
+    if( target == nullptr || !target->IsLiving() && !target->CanBeAttacked() )
+        return;
+
+    //===========================命中特效 | 发射特效
+    if( target->IsTower() )                   //塔目标时,调用通用命中特效,避免出现飙血等等诡异
+        SimFrameEvent::CreateEffectAtPosition( L"Hero_Nor_hit", target->GetPos(), owner->GetDir());
+    else                                      //英雄自己的命中特效,飙血什么的
+    {
+		if (_isPhyCrit)
+			SimFrameEvent::CreateEffectAtPosition(L"Hero_Nor_hit_critical", target->GetPos(),owner->GetDir());
+		else
+			SimFrameEvent::CreateEffectAtPosition(L"Hero_Nor_hit", target->GetPos(), owner->GetDir());
+	}
+
+    //===========================构造伤害
+    Damage dmg = Damage::NormalAttackDamage( owner );
+	dmg.physicalAttackCriticalChance = _isPhyCrit ? 1.0f: 0.0f;
+	dmg.magicalAttackCriticalChance = _isMagCrit ? 1.0f: 0.0f;
+    //===========================造成伤害 | 发射子弹
+    target->DealDamage( dmg );
+
+    //===========================动作表现     //注意打塔不要出现暴击动作
+
+    //===========================特殊处理     //触发了什么什么别的技能?
+}
+</Source>
+
+[Bullet1Template]
+<Header>
+//bullet 碰撞后爆炸子弹
+#include "IBullet.h"
+class $ClassName$ :public BaseBullet
+{
+	Damage dmg;//爆炸伤害
+	Vector2 curr_pos;//实际子弹位置
+	Vector2 dstPosition;//实际子弹最终位置
+	Vector2 dstPos;//特效子弹最终位置
+	Vector2 tailPos;//子弹尾部位置（在这里算子弹是有体积的）
+	FLOAT m_fBulletLen;//子弹长度
+	FLOAT fBoomWidth;//碰撞宽度
+	FLOAT castRange ;//飞行最大距离
+	FLOAT flyStep ;	//每帧飞行距离
+	FLOAT flySpeed;//每秒飞行距离
+	FLOAT fBoomRadius ;//检测半径
+	int aimId;//碰撞目标id
+	Vector2 aimPos;//爆炸地点
+	int delBulletFrame;//删除子弹帧
+	int m_nLevel;
+public:
+	$Bullet1Name$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg);
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	const char * GetTypeName(){ return NAME; }
+	const wchar_t * GetTypeNameW(){ return WNAME; }
+	void Update() override;
+	Vector2 Vector2Offset(Vector2 dir, FLOAT x, FLOAT y);
+	bool IsInclude(Actor * actor);
+	bool TryHit();
+	void m_Boom(Vector2 _dstPos);
+	virtual FLOAT GetSpeed() { return flySpeed; }
+	virtual const Vector2& GetTargetPosOrId(int& targetId){
+		targetId = -1;
+		if (delBulletFrame > 0)
+			return pos;
+		return dstPos;
+	}//存在具体target，则返回targetId
+};
+</Header>
+ 
+<Source> 
+#include "BulletManager.h"
+
+const char * $ClassName$::NAME="$ClassCName$";
+const wchar_t * $ClassName$::WNAME=L"$ClassCName$";
+$ClassName$::$ClassName$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg)
+{
+	
+    side = _owner->GetSide();
+    ownerId = _owner->GetId();
+    dmg = _dmg;
+	FLOAT yOffset = 2.0f;
+	pos = _owner->GetPos()+ Vector2Offset(_owner->GetDir(),0.25f, yOffset);
+	dir = _dstPos - _owner->GetPos();
+	if(!dir.IsValid() || dir.GetSqrLength() <= 0.0f)
+	{
+		dir = _owner->GetDir();
+	}
+	dir.Normalize();
+	fBoomWidth = 2.5f;
+	castRange = 10.0f;
+	m_nLevel = 1;
+	m_fBulletLen = 0.0f; //子弹长度(0则认为子弹有是无体积的)
+	flySpeed = 20.0f;
+	flyStep = flySpeed * sg->FRAME_TIME;
+	//curr_pos = pos - 1.0 * dir;
+	curr_pos = _owner->GetPos();
+	dstPosition = curr_pos + dir * castRange;
+	dstPos = pos + dir * (castRange - yOffset);
+	fBoomRadius = SimMath::Sqrt(fBoomWidth * fBoomWidth / 4.0f + flyStep * flyStep);
+	aimPos = Vector2::ZERO;
+	aimId = -1;
+	delBulletFrame = -1;
+	_SetForcedVisibleSide(side, true);
+}
+Vector2 $ClassName$::Vector2Offset(Vector2 dir, FLOAT x, FLOAT y)
+{
+	Vector2 result, xOffset, yOffset;	 
+	if(!dir.IsValid())
+	{
+		dir = Vector2(0.0f, 1.0f);
+	}
+	dir.Normalize();
+	yOffset = dir;
+	xOffset = yOffset;
+	xOffset.RotateClockwise(3.14f/2.0f);
+	result = x * xOffset + y * yOffset;
+	return result;
+}
+void $ClassName$::Update()
+{
+	if(delBulletFrame != -1)
+	{
+		if(sg->frame == delBulletFrame)
+		{
+			sg->bulletManager->DelBullet(this);
+		}
+		return;
+	}
+	if (TryHit())
+	{
+		/*Actor * tmpTarget = sg->actorManager->GetActorById(aimId);
+		if(tmpTarget)*/
+		m_Boom(aimPos);
+		//sg->bulletManager->DelBullet(this);
+		delBulletFrame = sg->frame + 6;
+		FLOAT _step = dir.Dot(aimPos - pos);
+		if(_step < 0.0f)
+			_step = 0.0f;
+		pos += dir * _step;
+		return;
+	}
+	Vector2 moveDir = dstPosition - curr_pos;
+	if (moveDir.GetSqrLength() <= flyStep * flyStep)
+	{
+		curr_pos = dstPosition;
+		if ((curr_pos - tailPos).GetSqrLength() > m_fBulletLen * m_fBulletLen)
+			tailPos = curr_pos - dir * m_fBulletLen;
+		//sg->bulletManager->DelBullet(this);
+		delBulletFrame = sg->frame + 6;
+		FLOAT _step = dir.Dot(curr_pos - pos);
+		if(_step < 0.0f)
+			_step = 0.0f;
+		pos += dir * _step;
+		return;
+	}
+	else
+	{
+		curr_pos += dir * flyStep;
+		if ((curr_pos - tailPos).GetSqrLength() > m_fBulletLen * m_fBulletLen)
+			tailPos = curr_pos - dir * m_fBulletLen;		
+	}
+	FLOAT _step = dir.Dot(curr_pos - pos);
+	if(_step < 0.0f)
+		_step = 0.1f;
+	pos += dir * _step;
+}
+bool $ClassName$::IsInclude(Actor * actor)
+{
+	FLOAT fBoomWidth2 = fBoomWidth * 0.5f, fPerBoomLength2 = flyStep;
+	if ((dstPosition - curr_pos).GetSqrLength() < flyStep * flyStep)
+		fPerBoomLength2 = (dstPosition - curr_pos).GetLength();
+	Vector2 tmpDir = actor->GetPos() - curr_pos;
+	if ( !tmpDir.IsValid() )
+		tmpDir = Vector2( 0.0f, 1.0f );
+	FLOAT tmpLength = tmpDir.GetLength();
+	if (tmpLength == 0.0f) tmpLength = 1.0f;
+	FLOAT dirLength = dir.GetLength();
+	if (dirLength == 0.0f) dirLength = 1.0f;
+	FLOAT cosAngle = Vector2::Dot(dir, tmpDir) / (dirLength * tmpLength);
+	FLOAT length = SimMath::Abs(tmpLength * cosAngle);
+	FLOAT sqrWidth = tmpLength * tmpLength - length * length;
+	float bulletLen = (curr_pos - tailPos).GetLength() - fPerBoomLength2;
+	if (bulletLen > m_fBulletLen) bulletLen = m_fBulletLen;
+	if(sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= fPerBoomLength2 && cosAngle >= 0.0f)
+		return true;
+	//else if(!beflied && sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= 1.0f && cosAngle < 0.0f) //因为起始位置向前偏移了，第一次筛选要算上自已到子弹起始位置之间的目标
+	//	return true;
+	else if (sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= bulletLen && cosAngle < 0.0f)
+	{
+		return true;
+	}
+	return false;
+
+}
+bool $ClassName$::TryHit() 
+{
+	auto nearActors = sg->actorManager->GetNearActors(curr_pos, fBoomRadius);
+	auto newEnd = std::remove_if(nearActors.begin(),nearActors.end(),[&](Actor * a)->bool{
+		if (!a->CanBeAttacked()) return true;
+		if (a->GetSide() == side) return true;
+		if (!IsInclude(a) ) return true;
+		return false;
+	});
+	nearActors.erase(newEnd,nearActors.end());
+	if (nearActors.empty()) return false;
+
+	Actor * act_tmp = NULL;
+	std::for_each(nearActors.begin(),nearActors.end(),[&](Actor * a){
+		if(!act_tmp) act_tmp = a;
+		else{
+			if ((a->GetPos() - curr_pos).GetSqrLength() < (act_tmp->GetPos() - curr_pos).GetSqrLength())
+				act_tmp = a;
+		}
+	});
+	if(!act_tmp) return false;
+	aimId = act_tmp->GetId();
+	aimPos = act_tmp->GetPos();
+	return true;
+}
+void $ClassName$::m_Boom(Vector2 _dstPos)
+{
+	
+	SimFrameEvent::CreateEffectAtPosition(L"Sonic_Q_burst",_dstPos);
+	sg->actorManager->QueryNearActors( _dstPos, 1.6f, [&]( Actor * target )
+	{
+		if(target && target->IsLiving() && target->CanBeAttacked() && target->GetSide() != side )
+		{
+			Damage tmp_dmg = dmg;
+			SimFrameEvent::CreateEffectOnTarget(L"Sonic_Q_hit", target->GetId(), 0.75f);
+			if(!target->DelSkillFreeDefense())
+			{
+				target->DealDamage( tmp_dmg );
+			}
+			if(target && target->IsLiving())
+				target->AddBuff(new SonicQBuff_mark(ownerId, markPer));
+		}
+	});
+	
+}
+</Source> 
+
+[Bullet2Template]
+<Header>
+//这是一支穿云箭
+class $ClassName$ :public BaseBullet
+{
+	Damage dmg;//爆炸伤害
+	Vector2 curr_pos;//实际子弹位置
+	Vector2 dstPosition;//实际子弹最终位置
+	Vector2 dstPos;//特效子弹最终位置
+	Vector2 tailPos;//子弹尾部位置（在这里算子弹是有体积的）
+	FLOAT m_fBulletLen;//子弹长度
+	FLOAT fBoomWidth;//碰撞宽度
+	FLOAT castRange ;//飞行最大距离
+	FLOAT flyStep ;	//每帧飞行距离
+	FLOAT flySpeed;//每秒飞行距离
+	FLOAT fBoomRadius ;//检测半径
+	int aimId;//碰撞目标id
+	Vector2 aimPos;//爆炸地点
+	int delBulletFrame;//删除子弹帧
+	int m_nLevel;
+	std::vector<int> m_hitActorId;
+public:
+	$ClassName$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg);
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	const char * GetTypeName(){ return NAME; }
+	const wchar_t * GetTypeNameW(){ return WNAME; }
+	void Update() override;
+	Vector2 Vector2Offset(Vector2 dir, FLOAT x, FLOAT y);
+	bool IsInclude(Actor * actor);
+	void TryHit();
+	void m_Boom(Vector2 _dstPos);
+	virtual FLOAT GetSpeed() { return flySpeed; }
+	virtual const Vector2& GetTargetPosOrId(int& targetId){
+		targetId = -1;
+		if (delBulletFrame > 0)
+			return pos;
+		return dstPos;
+	}//存在具体target，则返回targetId
+};
+</Header>
+
+
+
+
+<Source>
+#include "BulletManager.h"
+const char * $ClassName$::NAME="$ClassCName$";
+const wchar_t * $ClassName$::WNAME=L"$ClassCName$";
+$ClassName$::$ClassName$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg)
+{
+	
+    side = _owner->GetSide();
+    ownerId = _owner->GetId();
+    dmg = _dmg;
+	FLOAT yOffset = 2.0f;
+	pos = _owner->GetPos()+ Vector2Offset(_owner->GetDir(),0.25f, yOffset);
+	dir = _dstPos - _owner->GetPos();
+	if(!dir.IsValid() || dir.GetSqrLength() <= 0.0f)
+	{
+		dir = _owner->GetDir();
+	}
+	dir.Normalize();
+	fBoomWidth = 1.65f;
+	castRange = 10.0f;
+	m_nLevel = 1;
+	m_fBulletLen = 0.0f; //子弹长度(这里认为子弹有是体积的)
+	flySpeed = 20.0f;
+	flyStep = flySpeed * sg->FRAME_TIME;
+	//curr_pos = pos - 1.0 * dir;
+	curr_pos = _owner->GetPos();
+	dstPosition = curr_pos + dir * castRange;
+	dstPos = pos + dir * (castRange - yOffset);
+	fBoomRadius = SimMath::Sqrt(fBoomWidth * fBoomWidth / 4.0f + flyStep * flyStep);
+	aimPos = Vector2::ZERO;
+	aimId = -1;
+	delBulletFrame = -1;
+	_SetForcedVisibleSide(side, true);
+}
+Vector2 $ClassName$::Vector2Offset(Vector2 dir, FLOAT x, FLOAT y)
+{
+	Vector2 result, xOffset, yOffset;	 
+	if(!dir.IsValid())
+	{
+		dir = Vector2(0.0f, 1.0f);
+	}
+	dir.Normalize();
+	yOffset = dir;
+	xOffset = yOffset;
+	xOffset.RotateClockwise(3.14f/2.0f);
+	result = x * xOffset + y * yOffset;
+	return result;
+}
+void $ClassName$::Update()
+{
+	if(delBulletFrame != -1)
+	{
+		if(sg->frame == delBulletFrame)
+		{
+			sg->bulletManager->DelBullet(this);
+		}
+		return;
+	}
+	TryHit();
+	Vector2 moveDir = dstPosition - curr_pos;
+	if (moveDir.GetSqrLength() <= flyStep * flyStep)
+	{
+		curr_pos = dstPosition;
+		if ((curr_pos - tailPos).GetSqrLength() > m_fBulletLen * m_fBulletLen)
+			tailPos = curr_pos - dir * m_fBulletLen;
+		//sg->bulletManager->DelBullet(this);
+		m_Boom(curr_pos);
+		delBulletFrame = sg->frame + 3;
+		FLOAT _step = dir.Dot(curr_pos - pos);
+		if(_step < 0.0f)
+			_step = 0.0f;
+		pos += dir * _step;
+		return;
+	}
+	else
+	{
+		curr_pos += dir * flyStep; 
+		if ((curr_pos - tailPos).GetSqrLength() > m_fBulletLen * m_fBulletLen)
+			tailPos = curr_pos - dir * m_fBulletLen;
+	}
+	FLOAT _step = dir.Dot(curr_pos - pos);
+	if(_step < 0.0f)
+		_step = 0.1f;
+	pos += dir * _step;
+}
+bool $ClassName$::IsInclude(Actor * actor)
+{
+	FLOAT fBoomWidth2 = fBoomWidth * 0.5f, fPerBoomLength2 = flyStep;
+	if ((dstPosition - curr_pos).GetSqrLength() < flyStep * flyStep)
+		fPerBoomLength2 = (dstPosition - curr_pos).GetLength();
+	Vector2 tmpDir = actor->GetPos() - curr_pos;
+	if ( !tmpDir.IsValid() )
+		tmpDir = Vector2( 0.0f, 1.0f );
+	FLOAT tmpLength = tmpDir.GetLength();
+	if (tmpLength == 0.0f) tmpLength = 1.0f;
+	FLOAT dirLength = dir.GetLength();
+	if (dirLength == 0.0f) dirLength = 1.0f;
+	FLOAT cosAngle = Vector2::Dot(dir, tmpDir) / (dirLength * tmpLength);
+	FLOAT length = SimMath::Abs(tmpLength * cosAngle);
+	FLOAT sqrWidth = tmpLength * tmpLength - length * length;
+	float bulletLen = (curr_pos - tailPos).GetLength() - fPerBoomLength2;
+	if (bulletLen > m_fBulletLen) bulletLen = m_fBulletLen;
+	if(sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= fPerBoomLength2 && cosAngle >= 0.0f)
+		return true;
+	//else if(!beflied && sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= 1.0f && cosAngle < 0.0f) //因为起始位置向前偏移了，第一次筛选要算上自已到子弹起始位置之间的目标
+	//	return true;
+	else if (sqrWidth <= fBoomWidth2 * fBoomWidth2 && length <= bulletLen && cosAngle < 0.0f)
+	{
+		return true;
+	}
+	return false;
+
+}
+void $ClassName$::TryHit() 
+{
+	Damage tmp_dmg = dmg;
+	sg->actorManager->QueryNearActors( curr_pos, fBoomRadius, [&]( Actor * target )
+	{
+		if (!target || !target->CanBeAttacked()) return ;
+		if (target->GetSide() == side) return ;
+		if (std::find(m_hitActorId.begin(), m_hitActorId.end(), target->GetId()) != m_hitActorId.end()) return;//伤害过一次就不再计算了
+		if (!IsInclude(target) ) return ;
+		m_hitActorId.push_back(target->GetId());
+		if(target->IsHero())
+			sonic->AddBuff(new SonicBornBuff_mvSpeed());
+		SimFrameEvent::CreateEffectOnTarget(L"Sonic_Q_hit", target->GetId(), 0.75f);
+		if(!target->DelSkillFreeDefense())
+		{
+			target->DealDamage( tmp_dmg );
+		}
+	});
+}
+void $ClassName$::m_Boom(Vector2 _dstPos)
+{
+	Damage tmp_dmg = dmg;
+	sg->actorManager->QueryNearActors( _dstPos, fBoomWidth / 2.0f, [&]( Actor * target )
+	{
+		if(target && target->IsLiving() && target->CanBeAttacked() && target->GetSide() != side )
+		{
+			if(dir.Dot(target->GetPos() - _dstPos) <= 0) return;
+			if(!target->DelSkillFreeDefense())
+			{
+				target->DealDamage( tmp_dmg );
+			}
+		}
+	});
+}
+</Source>
+
+
+[Bullet3Template]
+<Header>
+//地点通用子弹
+class $ClassName$ :public PositionCrossTriggerBulletT<$ClassName$>
+{
+public:
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	$ClassName$(Actor *_owner, const Vector2 &_dstPos, const Damage& _dmg);
+	void Update() override;
+	bool TryHit(const tmp_vector<Actor*>& crossActors) override;
+	void Boom(Vector2 _dstPos) override;
+	const Vector2& GetTargetPosOrId(int& targetId) override;
+	FLOAT GetSpeed() override;
+	void CrossHit(const tmp_vector<Actor *>& crossActors);
+	void TriggerHit(const tmp_vector<Actor *>& crossActors);
+private:
+	int m_nStartFrame;
+	bool m_bTriggerBoom;
+};
+</Header>
+
+
+
+
+<Source>
+#include "BulletManager.h"
+#include "CrossOrTriggerBullet.h"
+const char * $ClassName$::NAME="$ClassCName$";
+const wchar_t * $ClassName$::WNAME=L"$ClassCName$";
+$ClassName$::$ClassName$(Actor *_owner, const Vector2 &_dstPos, const Damage& _dmg)
+{
+	side = _owner->GetSide();
+	ownerId = _owner->GetId();
+	m_dmg = _dmg;
+	FLOAT yOffset = 1.5f;
+	pos = _owner->GetPos() + Vector2Offset(_owner->GetDir(), 0.0f, yOffset);
+	dir = _dstPos - _owner->GetPos();
+	if (!dir.IsValid() || dir.GetSqrLength() <= 0.0f)
+	{
+		dir = _owner->GetDir();
+	}
+	dir.Normalize();
+	m_nLevel = 1;
+	//ISkill * skill = _owner->GetSkill(Q_SKILL_ID);
+	//if (skill)
+	//	m_nLevel = skill->GetLevel();
+	//if (m_nLevel < 1) m_nLevel = 1;
+
+	m_fBoomWidth = 2.0f;
+	m_fFlyRange = 6.0f;
+	m_fBulletLen = 2.0f; 
+	m_fFlySpeed = 14.0f;
+	m_currRealPos = _owner->GetPos();
+	m_dstRealPos = m_currRealPos + m_fFlyRange * dir;
+	m_dstPos = pos + dir * (m_fFlyRange - yOffset);
+	m_nStartFrame = (int)sg->frame;
+	m_bTriggerBoom = false;
+}
+void $ClassName$::Update()
+{
+	if (sg->frame < m_nStartFrame)
+	{
+		return;
+	}
+	__super::Update();
+	
+}
+bool $ClassName$::TryHit(const tmp_vector<Actor *>& crossActors)
+{
+	if(m_bTriggerBoom) TriggerHit(crossActors);
+	else CrossHit(crossActors);
+	return false;
+}
+void $ClassName$::TriggerHit(const tmp_vector<Actor *>& crossActors)
+{
+	Actor * act_tmp = NULL;
+	std::for_each(crossActors.begin(), crossActors.end(), [&](Actor * a) {
+		if (!a || !a->IsLiving() || !a->CanBeAttacked()) return;
+		if (a->GetSide() == side) return;
+		if (!act_tmp) act_tmp = a;
+		else {
+			if (dir.Dot(a->GetPos() - m_currRealPos) < dir.Dot(act_tmp->GetPos() - m_currRealPos))
+				act_tmp = a;
+		}
+	});
+	if (act_tmp == nullptr) return;
+	Vector2 targetPos =  act_tmp->GetPos();
+	Vector2 tmpDir = targetPos - m_currRealPos;
+	float ResetDstLen = 0.0f;
+	if (tmpDir.IsValid() && tmpDir.GetSqrLength() > 0.0f)
+	{
+		ResetDstLen = Vector2::Dot(tmpDir, dir);
+		if (ResetDstLen < 0.0f) ResetDstLen = 0.0f ;
+	}
+	m_dstRealPos = m_currRealPos + ResetDstLen * dir;
+}
+void $ClassName$::CrossHit(const tmp_vector<Actor *>& crossActors)
+{
+	std::for_each(crossActors.begin(), crossActors.end(), [&](Actor * target) {
+		if (!target || !target->CanBeAttacked()) return;
+		if (target->GetSide() == side) return;
+		//create hit effect here
+		if (!target->DelSkillFreeDefense())
+		{
+			if (target->DealDamage(m_dmg) && target->IsLiving() && target->CanBeAttacked())
+			{
+			}
+		}
+	});
+}
+void $ClassName$::Boom(Vector2 _dstPos)
+{
+	if(!m_bTriggerBoom) return;
+	m_nDeleteBulletFrame = sg->frame + 6;
+	float radius = YouLiSi_Config::Q::q_boomRadius[m_nLevel - 1];
+	//create boom effect here
+	sg->actorManager->QueryNearActors(_dstPos, radius, [&](Actor * target)
+	{
+		if (target && target->IsLiving() && target->CanBeAttacked() && target->GetSide() != side)
+		{
+			//create hit effect here
+			if (!target->DelSkillFreeDefense())
+			{
+				if (target->DealDamage(m_dmg) && target->IsLiving() && target->CanBeAttacked())
+				{
+				}
+			}
+		}
+	});
+}
+const Vector2& $ClassName$::GetTargetPosOrId(int& targetId)
+{ 
+	targetId = -1;
+	if (m_nDeleteBulletFrame > 0)
+	{
+		return pos;
+	}
+	return m_dstPos;
+}
+FLOAT $ClassName$::GetSpeed()
+{
+	if (sg->frame < m_nStartFrame)
+	{
+		return 0.0001f;
+	}
+	return __super::GetSpeed();
+}
+</Source>
+
+
+
+
+
+[ConfigTemplate]
+<Header>
+//config
+
+#include "GlobalConfig.h"
+namespace $ClassName$
+{
+	namespace B {
+	}
+
+	namespace Q {
+		CONFIG_EXTERN_ARRAY(FLOAT, q_cd, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, q_mp, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, q_dmg, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, w_multiple, 5);
+	}
+
+	namespace W {
+		CONFIG_EXTERN_ARRAY(FLOAT, w_cd, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, w_mp, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, w_dmg, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, w_multiple, 5);
+
+	}
+
+	namespace E {
+
+		CONFIG_EXTERN_ARRAY(FLOAT, e_cd, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, e_mp, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, e_dmg, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, e_multiple, 5);
+	}
+
+	namespace R {
+		CONFIG_EXTERN_ARRAY(FLOAT, r_cd, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, r_mp, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, r_dmg, 5);
+		CONFIG_EXTERN_ARRAY(FLOAT, r_multiple, 5);
+	}
+}
+</Header>
+<Source>
+#include "stdafx.h"
+namespace $ClassName$
+{
+	namespace B {
+	}
+
+	namespace Q {
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.Q.CD", q_cd, 5, "$HeroName$.Q.CD", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.Q.MP", q_mp, 5, "$HeroName$.Q.MP", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.Q.DMG", q_DMG, 5, "$HeroName$.Q.DMG", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.Q.MULTIPLE", q_multiple,5, "$HeroName$.Q.MULTIPLE", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+	}
+
+	namespace W {
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.W.CD", w_cd, 5, "$HeroName$.W.CD", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.W.MP", w_mp, 5, "$HeroName$.W.MP", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.W.DMG", w_DMG, 5, "$HeroName$.W.DMG", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.W.MULTIPLE", w_multiple, 5, "$HeroName$.W.MULTIPLE", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+	}
+
+	namespace E {
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.E.CD", e_cd, 5, "$HeroName$.E.CD", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.E.MP", e_mp, 5, "$HeroName$.E.MP", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.E.DMG", e_DMG, 5, "$HeroName$.E.DMG", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.E.MULTIPLE", e_multiple, 5, "$HeroName$.E.MULTIPLE", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+	}
+
+	namespace R {
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.R.CD", r_cd, 5, "$HeroName$.R.CD", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.R.MP", r_mp, 5, "$HeroName$.R.MP", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.R.DMG", r_DMG, 5, "$HeroName$.R.DMG", { 0.0f * HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR, 0.0f* HQG_NUM_FACTOR });
+		CONFIG_ARRAY_NO_STATIC(FLOAT, "$HeroName$.R.MULTIPLE", r_multiple, 5, "$HeroName$.R.MULTIPLE", { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f });
+	}
+}
+</Source>
