@@ -226,6 +226,7 @@ private:
 };
 
 #include "IBuff.h"
+#include "BaseRunBuff.h"
 class $ClassName$_run : public TowardTargetPositionRunT<$ClassName$_run>
 {
 public:
@@ -374,7 +375,7 @@ void $SkillName$::OnHit(Actor *a)
 	if (!a->DelSkillFreeDefense())
 	{
 		//Damage _dmg = Damage::SkillDamage(owner, R_SKILL_ID);
-		//_dmg.physicalDamage = MeiLing_Config::R::rw_dmg[level - 1] + MeiLing_Config::R::rw_multiple[level - 1] * owner->GetPhysicalAttack();
+		//_dmg.physicalDamage = $HeroName$$::$SkillADUpperCase$::$SkillADLowerCase$_dmg[level - 1] + $HeroName$$::$SkillADUpperCase$::$SkillADLowerCase$_multiple[level - 1] * owner->GetPhysicalAttack();
 		////skill hit effect
 		//a->DealDamage(_dmg);
 	}
@@ -530,6 +531,7 @@ void $ClassName$_run::OnEnd(IBuff ** ppNewBuff)
 [RunBuffTemplate]
 <Header>
 #include "IBuff.h"
+#include "BaseRunBuff.h"
 class $ClassName$ : public TowardTargetPositionRunT<$ClassName$>
 {
 public:
@@ -653,7 +655,7 @@ public:
 
 $ClassName$::$ClassName$()
 {
-    step1Percent = 0.23f;
+    step1Percent = 0.2f;
 	INIT_SAFE_VALUE(animationType, 0);
 	INIT_SAFE_VALUE(_isPhyCrit, false);
 	INIT_SAFE_VALUE(_isMagCrit, false);
@@ -711,6 +713,8 @@ void $ClassName$::OnHit()
     //===========================特殊处理     //触发了什么什么别的技能?
 }
 </Source>
+
+
 
 [Bullet1Template]
 <Header>
@@ -791,12 +795,13 @@ $ClassName$::$ClassName$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg
 }
 Vector2 $ClassName$::Vector2Offset(Vector2 dir, FLOAT x, FLOAT y)
 {
-	Vector2 result, xOffset, yOffset;	 
+	Vector2 result, xOffset, yOffset;
+	dir.Normalize();	
 	if(!dir.IsValid())
 	{
 		dir = Vector2(0.0f, 1.0f);
 	}
-	dir.Normalize();
+	
 	yOffset = dir;
 	xOffset = yOffset;
 	xOffset.RotateClockwise(3.14f/2.0f);
@@ -1007,12 +1012,12 @@ $ClassName$::$ClassName$(Actor *_owner,const Vector2 &_dstPos,const Damage& _dmg
 }
 Vector2 $ClassName$::Vector2Offset(Vector2 dir, FLOAT x, FLOAT y)
 {
-	Vector2 result, xOffset, yOffset;	 
+	Vector2 result, xOffset, yOffset;	
+	dir.Normalize();
 	if(!dir.IsValid())
 	{
 		dir = Vector2(0.0f, 1.0f);
 	}
-	dir.Normalize();
 	yOffset = dir;
 	xOffset = yOffset;
 	xOffset.RotateClockwise(3.14f/2.0f);
@@ -1145,7 +1150,6 @@ private:
 
 
 
-
 <Source>
 #include "BulletManager.h"
 #include "CrossOrTriggerBullet.h"
@@ -1236,7 +1240,7 @@ void $ClassName$::Boom(Vector2 _dstPos)
 {
 	if(!m_bTriggerBoom) return;
 	m_nDeleteBulletFrame = sg->frame + 6;
-	float radius = YouLiSi_Config::Q::q_boomRadius[m_nLevel - 1];
+	float radius = $HeroName$_config::$SkillADUpperCase$$::$SkillADLowerCase$_boomRadius[m_nLevel - 1];
 	//create boom effect here
 	sg->actorManager->QueryNearActors(_dstPos, radius, [&](Actor * target)
 	{
@@ -1272,8 +1276,153 @@ FLOAT $ClassName$::GetSpeed()
 </Source>
 
 
+[BulletPositionTemplate]
+<Header>
+#include "IBullet.h"
+class $ClassName$ :public TargetPositionBulletT<$ClassName$>
+{
+protected:
+	void Boom();
+public:
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	$ClassName$(  Actor * owner, const Vector2& targetPosition,const Damage& dmg);
+private:
+	int m_nLevel;
+};
+</Header>
 
+<Source>
+#include "SimFrameEvent.h"
+#include "BulletManager.h"
+#include "Damage.h"
+const char * $ClassName$::NAME="$ClassCName$";
+const wchar_t * $ClassName$::WNAME=L"$ClassCName$";
+$ClassName$::$ClassName$( Actor * owner, const Vector2& targetPosition,const Damage& dmg )
+{
+	pos = owner->GetPos() + _LocalOffset(owner, 0.0f, 1.5f);
+	targetPos = targetPosition;
+	ownerId = owner->GetId();
+	side = owner->GetSide();
+	dir = (targetPos - pos).GetNormalized();
+	if (!dir.IsValid()) dir = owner->GetDir();
+	this->dmg = dmg;
+	flySpeed = 40.0f;
+	m_nLevel = 1;
+	ISkill * skill = owner->GetSkill($SkillADUpperCase$_SKILL_ID);
+	if (skill)
+		m_nLevel = skill->GetLevel();
+	if (m_nLevel < 1) m_nLevel = 1;
+}
+void $ClassName$::Boom()
+{
+	SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_boom", targetPos);
+	float radius = DaYe_Config::R::r_boomRadius[m_nLevel - 1];
+	sg->actorManager->QueryNearActors(targetPos, radius, [&](Actor * target)
+	{
+		if( target->CanBeAttacked() && target->GetSide() != myside && !target->skillFree )
+		{
+			SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_hit", target->GetPos());
+			target->DealDamage( dmg );
+			if (target->IsLiving())
+			{
+			}
+		}
+	} );
+	
+	sg->bulletManager->DelBullet( this );
+}
+</Source>
 
+[BulletTargetTemplate]
+<Header>
+#include "IBullet.h"
+class $ClassName$ : public ChaseTargetBulletT<$ClassName$>
+{
+public:
+	$ClassName$(Actor *_owner, IActorTowerCommon* _target, const Damage& _dmg);
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	void Boom(bool bAttackTarget) override;
+};
+</Header>
+
+<Source>
+#include "SimFrameEvent.h"
+#include "BulletManager.h"
+#include "Damage.h"
+const char * $ClassName$::NAME = "$ClassCName$";
+const wchar_t * $ClassName$::WNAME = L"$ClassCName$";
+$ClassName$::$ClassName$(Actor *_owner, IActorTowerCommon* _target, const Damage& _dmg)
+{
+	InitTarget(_owner, _target);
+	dmg = _dmg;
+	flySpeed = 18.0f;
+	float xOffset = 0.0f;
+	pos = _owner->GetPos() + _LocalOffset(_owner, xOffset, 1.5f);
+}
+void DaYe_N_Bullet::Boom(bool bAttackTarget)
+{
+	if (bAttackTarget && target)
+	{
+		SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_hit", target->GetPos());
+		if (target->DealDamage(dmg))
+		{
+		}
+	}
+	sg->bulletManager->DelBullet(this);
+}
+</Source>
+
+[NormalBulletTemplate]
+<Header>
+#include "IBullet.h"
+class $ClassName$ : public ChaseTargetBulletT<$ClassName$>
+{
+public:
+	$ClassName$(Actor *_owner, IActorTowerCommon* _target, const Damage& _dmg, int anim);
+	static const char * NAME;
+	static const wchar_t * WNAME;
+	void Boom(bool bAttackTarget) override;
+};
+</Header>
+
+<Source>
+#include "SimFrameEvent.h"
+#include "BulletManager.h"
+#include "Damage.h"
+const char * $ClassName$::NAME = "$ClassCName$";
+const wchar_t * $ClassName$::WNAME = L"$ClassCName$";
+$ClassName$::$ClassName$(Actor *_owner, IActorTowerCommon* _target, const Damage& _dmg, int anim)
+{
+	InitTarget(_owner, _target);
+	dmg = _dmg;
+	flySpeed = 18.0f;
+	float xOffset = 0.0f;
+	switch(anim)
+	{
+		case 0:break;
+		case 1:break;
+		case 2:break;
+	}
+	pos = _owner->GetPos() + _LocalOffset(_owner, xOffset, 1.5f);
+	SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_put", pos, dir);
+}
+void $ClassName$::Boom(bool bAttackTarget)
+{
+	if (bAttackTarget && target)
+	{
+		if (dmg.physicalAttackCriticalChance == 1.0f)
+			SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_hitCritical", target->GetPos());
+		else
+			SimFrameEvent::CreateEffectAtPosition(L"$HeroName$_$SkillADUpperCase$_hit", target->GetPos());
+		if (target->DealDamage(dmg))
+		{
+		}
+	}
+	sg->bulletManager->DelBullet(this);
+}
+</Source>
 
 [ConfigTemplate]
 <Header>
@@ -1318,6 +1467,7 @@ namespace $ClassName$
 </Header>
 <Source>
 #include "stdafx.h"
+#include "Actor.h"
 namespace $ClassName$
 {
 	namespace B {
