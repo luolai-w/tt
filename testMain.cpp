@@ -81,6 +81,188 @@ std::string getStr()
 	return sValue;
 }
 
+template<typename T>
+void quicksort(T a[], int low, int high)
+{
+	int l = low;
+	int h = high;
+	if (l >= h) return;
+	T tmp = a[l];
+	while (l < h)
+	{
+		while (l < h && a[h] >= tmp) h--;
+		a[l] = a[h];
+		while (l < h && a[l] < tmp) l++;
+		a[h] = a[l];
+	}
+	a[l] = tmp;
+	if (l - 1 > low) quicksort(a,low, l - 1);
+	if (l + 1 < high) quicksort(a,l + 1, high);
+}
+
+#include <sstream>
+std::string reverseString(std::string s) {
+	std::stringstream sstr;
+	if (s.empty())return "";
+	std::string::const_iterator itr = s.end();
+	itr--;
+	for (; itr != s.begin(); itr--)
+		sstr<< *itr;
+	sstr<<*s.begin();
+	return sstr.str();
+}
+
+char findTheDifference(std::string s, std::string t) {
+	unsigned i = 0;
+	char r = 0;
+	for (; i < t.size(); i++)
+	{
+		r ^= t[i];
+	}
+	for (i = 0; i < s.size(); i++)
+	{
+		r ^= s[i];
+	}
+	return r;
+}
+
+template<typename T>
+struct BinaryTreeNode {
+	T value;
+	struct BinaryTreeNode * left;
+	struct BinaryTreeNode * right;
+	BinaryTreeNode(T v) :value(v), left(nullptr), right(nullptr) {}
+	BinaryTreeNode() :value((T)0), left(nullptr), right(nullptr) {}
+};
+
+template<typename T>
+struct BinaryTreeNode<T>* ConstructBTNode(T* preStart, T* preEnd, T* midStart, T* midEnd)
+{
+	struct BinaryTreeNode<T> * node = (struct BinaryTreeNode<T>*)malloc(sizeof(struct BinaryTreeNode<T>));
+	node->value = *preStart;
+	node->left = nullptr;
+	node->right = nullptr;
+	if (preStart == preEnd) {
+		if (midStart == midEnd && *midStart == *preStart)
+			return node;
+		else
+		{
+			throw std::exception("invalid input!");
+			return node;
+		}
+	}
+	T* rootNode = midStart;
+	while (rootNode < midEnd)
+	{
+		if (*rootNode == node->value) break;
+		rootNode++;
+	}
+	if (*rootNode != node->value)
+	{
+		throw std::exception("invalid input!");
+		return node;
+	}
+	int l_len = rootNode - midStart;
+	if (l_len > 0)
+		node->left = ConstructBTNode(preStart + 1, preStart + l_len, midStart, midStart + l_len - 1);
+	if (midEnd - rootNode > 0)
+		node->right = ConstructBTNode(preStart + 1 + l_len, preEnd, midStart + l_len+1, midEnd);
+	return node;
+}
+
+template<typename T>
+struct BinaryTreeNode<T>* CreateBTree(T pre[],T middle[], int length)
+{
+	if (pre == nullptr || middle == nullptr || length <= 0) return nullptr;
+	return ConstructBTNode(pre, pre + length - 1, middle, middle + length - 1);
+}
+
+#include <queue>
+template<typename T>
+void BTDepthFS(struct BinaryTreeNode<T>* bt, std::vector<T>& path)
+{
+	if (bt == nullptr) return;
+	std::queue<struct BinaryTreeNode<T>*> q;
+	if(bt != nullptr)
+	q.push(bt);
+	while (!q.empty())
+	{
+		unsigned len = q.size();
+		for (unsigned i = 0; i < len; i++)
+		{
+			struct BinaryTreeNode<T>* node = q.front();
+			q.pop();
+			path.push_back(node->value);
+			if (node->left)
+				q.push(node->left);
+			if (node->right)
+				q.push(node->right);
+		}
+	}
+}
+
+template<typename T>
+void BTPreOrder(struct BinaryTreeNode<T>* bt, std::vector<T>& path)
+{
+	if (bt == nullptr) return;
+	path.push_back(bt->value);
+	if (bt->left)
+		BTPreOrder(bt->left,path);
+	if (bt->right)
+		BTPreOrder(bt->right,path);
+}
+
+template<typename T>
+void BTInOrder(struct BinaryTreeNode<T>* bt, std::vector<T>& path)
+{
+	if (bt == nullptr) return;
+	std::stack<struct BinaryTreeNode<T>*> s;
+	if (bt != nullptr)
+		s.push(bt);
+	std::stack<struct BinaryTreeNode<T>*>::value_type  p = s.top();
+	s.pop();
+	while (!s.empty() || p != nullptr)
+	{
+		while (p != nullptr)
+		{
+			s.push(p);
+			p = p->left;
+		}
+		if (!s.empty())
+		{
+			p = s.top();
+			s.pop();
+			path.push_back(p->value);
+			p = p->right;
+		}
+	}
+}
+
+template<typename T>
+void BTPostOrder(struct BinaryTreeNode<T>* bt, std::vector<T>& path)
+{
+	if (bt == nullptr) return;
+	std::stack<std::pair<struct BinaryTreeNode<T>*, bool>> s;
+	if (bt != nullptr)
+		s.push(std::make_pair(bt, false));
+	while (!s.empty())
+	{
+		std::stack<std::pair<struct BinaryTreeNode<T>*, bool>>::value_type  p = s.top();
+		s.pop();
+		if (p.second)
+			path.push_back((p.first)->value);
+		else
+		{
+			s.push(std::make_pair(p.first, true));
+			if ((p.first)->right)
+				s.push(std::make_pair((p.first)->right, false));
+			if ((p.first)->left)
+				s.push(std::make_pair((p.first)->left, false));
+		}
+	}
+}
+
+
 void ttest()
 {
 	char *path = __FILE__;
@@ -93,6 +275,43 @@ void ttest()
 	std::cout << isEqual << std::endl;
 	isEqual = strcmp(spath.c_str(), _spath.c_str()) == 0;
 	std::cout << isEqual << std::endl;
+	int number = 0x80000001;
+	unsigned int uNum = (unsigned int)number;
+	int number2 = 0xFFFFFFFF;
+	unsigned int uNum2 = (unsigned int)number;
+	int number3 = -1;
+	unsigned int uNum3 = (unsigned int)number3;
+	int number4 = -0x7FFFFFFF;
+	unsigned int uNum4 = (unsigned int)number4;
+	
+	
+	std::cout << number << "->" << (uNum & ~(1<<31))<< std::endl;
+	std::cout << number2 << "->" <<( uNum2 & ~(1 << 31) )<< std::endl;
+	std::cout << number3 << "->" << uNum3 << std::endl;
+	std::cout << number4 << "->" << (uNum4 & ~(1 << 31)) << std::endl;
+
+
+	typedef struct bb
+	{
+		
+		char c;             //[0]....[0]		有效对齐1
+		int id;             //[4]....[7]		有效对齐4
+		
+		int id2;			//[8]....[11]		有效对齐4
+		double weight;      //[16].....[23]　　　　　　原则１ 有效对齐8
+		//float height;      //[16]..[19],总长要为８的整数倍,补齐[20]...[23]　　　　　原则３
+		char c2;			//[24]....[24]		有效对齐 1
+	}BB;		//[0]....[31] 整体有效对齐 8
+
+	std::cout << "BB: " << sizeof(BB) << std::endl;
+	int a1[] = { 11,22,13,34,25,6 };
+	int a2[] = { 1,2,3,4,5,6 };
+	int a3[] = { 61,52,43,34,25,16 };
+	quicksort(a1, 0, 5);
+	quicksort(a2, 0, 5);
+	quicksort(a3, 0, 5);
+
+	std::cout << findTheDifference("abcd","abcfdegh") << std::endl;
 
 	int a[] = { 1,2,3,4,5,6 };
 	int *p;
@@ -102,6 +321,34 @@ void ttest()
 	std::cout << *p << "," << *c << std::endl;
 	int d = 100;
 	char* s = new char[d];
+
+	{//binary tree
+		int pre[] = { 1,2,4,7,6,8,3,5 };
+		int mid[] = { 7,4,8,6,2,1,5,3 };
+		struct BinaryTreeNode<int>* bTree = CreateBTree(pre, mid, 8);
+		std::vector<int> prePath;
+		std::vector<int> inPath;
+		std::vector<int> postPath;
+		std::vector<int> depthPath;
+		BTPreOrder(bTree, prePath);
+		BTInOrder(bTree, inPath);
+		BTPostOrder(bTree, postPath);
+		BTDepthFS(bTree, depthPath);
+
+		std::cout << "pre-order: ";
+		for (unsigned i = 0; i < prePath.size(); i++)
+			std::cout << prePath[i] << ",";
+		std::cout << "\nin-order: ";
+		for (unsigned i = 0; i < inPath.size(); i++)
+			std::cout << inPath[i] << ",";
+		std::cout << "\npost-order: ";
+		for (unsigned i = 0; i < postPath.size(); i++)
+			std::cout << postPath[i] << ",";
+		std::cout << "\ndepth-first: ";
+		for (unsigned i = 0; i < depthPath.size(); i++)
+			std::cout << depthPath[i] << ",";
+	}
+	
 
 	writeFile("TestIconv.log", "this is a test(此内容需要以GB2312编码格式查看)！");//字符串以源文件编码方式（GB2312）解码存入文件
 	writeFileEx("TestIconv.log", "this is a test(此内容需要以UTF-8编码格式查看)！");//字符串以UTF-8解码存入文件
