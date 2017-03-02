@@ -257,6 +257,50 @@ struct BinaryTreeNode<T>* CreateBTree(T pre[],T middle[], int length)
 	return ConstructBTNode(pre, pre + length - 1, middle, middle + length - 1);
 }
 
+template<typename T>
+struct BinaryTreeNode<T>* CreateBTree(T arr[], unsigned length)
+{
+	if (arr == nullptr || length == 0) return nullptr;
+	typedef BinaryTreeNode<T> BTNode;
+	BTNode* root = nullptr;
+	stack<std::pair<BTNode*,int>> s;
+	if (arr[0] == -1) return root;
+	BTNode* p = (BTNode*)malloc(sizeof(BTNode));
+	p->value = arr[0];
+	p->left = nullptr;
+	p->right = nullptr;
+	root = p;
+	s.push(std::make_pair(p, 0));
+	int i = 1;
+	while (!s.empty() && i < length)
+	{
+		stack<pair<BTNode*, int>>::value_type e = s.top();
+		s.pop();
+		p = nullptr;
+		if (arr[i] != -1)
+		{
+			p = (BTNode *)malloc(sizeof(BTNode));
+			p->value = arr[i];
+			p->left = nullptr;
+			p->right = nullptr;
+		}
+		i++;
+		if (e.second == 0) //left child
+		{
+			e.second += 1;
+			e.first->left = p;
+			s.push(e);
+			if (p) s.push(std::make_pair(p,0));
+		}
+		else//right child
+		{
+			e.first->right = p;
+			if (p) s.push(std::make_pair(p, 0));
+		}
+	}
+	return root;
+}
+
 #include <queue>
 template<typename T>
 void BTDepthFS(struct BinaryTreeNode<T>* bt, std::vector<T>& path)
@@ -588,6 +632,162 @@ ListNode* FindKthToTail(ListNode* head, int k)
 	return p;
 }
 
+
+vector<vector<int>> FindPath(struct BinaryTreeNode<int>* root, int target)
+{
+	typedef struct BinaryTreeNode<int> BTNode;
+	deque<BTNode*> d;
+	stack<BTNode*> s;
+
+	vector<vector<int>> paths;
+	if (root != nullptr) s.push(root);
+	int sum = 0;
+	while (!s.empty())
+	{
+		BTNode* p = s.top();
+		s.pop();
+		bool isleaf = p->left == nullptr || p->right == nullptr;
+		if (isleaf)
+		{
+			if (sum + p->value == target)
+			{
+				vector<int> path;
+				for (deque<BTNode*>::iterator itr = d.begin(); itr != d.end(); itr++)
+				{
+					path.push_back((*itr)->value);
+				}
+				path.push_back(p->value);
+				paths.push_back(path);
+			}
+			if (s.empty()) break;
+			p = s.top();
+			BTNode* q = nullptr;
+			while (!d.empty())
+			{
+				q = d.back();
+				if (q->left == p || q->right == p) break;
+				d.pop_back();
+				sum -= q->value;
+			}
+			if (q == nullptr || (q->left != p && q->right != p)) break;
+		}
+		else {
+			sum += p->value;
+			d.push_back(p);
+			if (p->right) s.push(p->right);
+			if (p->left) s.push(p->left);
+		}
+	}
+	return paths;
+}
+#include <set>
+int minMoves(vector<int>& nums)
+{
+	int step = 0;
+	if (nums.size() < 2) return step;
+	quickSort(nums, 0, nums.size() -1);
+	int k = nums.size() - 1;
+	while (*nums.begin() < *nums.rbegin())
+	{
+		for (k = nums.size() - 2; k > 0; k--)
+		{
+			if (nums[k] < nums[nums.size() - 1]) break;
+		}
+		int offset = nums[nums.size() - 1] - nums[k];
+		for (int i = 0; i< nums.size() -1; i++)
+		{
+			nums[i] += offset;
+		}
+		int j = (int)nums.size() - 2;
+		int tmp = nums[j + 1];
+		while (j >= 0 && nums[j] > tmp)
+		{
+			nums[j+1] = nums[j];
+			j--;
+		}
+		nums[j + 1] = tmp;
+		step += offset;
+	}
+	return	step;
+}
+
+#include <unordered_map>
+bool canConstruct(string ransomNote, string magazine)
+{
+	std::unordered_map<char, int> availLatters;
+	bool res = true;
+	for (string::const_iterator itr = magazine.begin(); itr != magazine.end(); itr++)
+		availLatters.insert(make_pair(*itr, 1));
+	for (string::const_iterator itr = ransomNote.begin(); itr != ransomNote.end(); itr++)
+	{
+		if (--availLatters[*itr] < 0) res = false;
+	}
+	return res;
+
+}
+
+string makeTimeFormat(int h, int m)
+{
+	stringstream s;
+	s << h << ":";
+	if (m < 10)
+		s << "0";
+	s << m;
+	return s.str();
+}
+
+void func(const vector<int>& arr, int startIndex, int n, int sum, vector<int>& res)
+{
+	if (n <= 0 || startIndex >= arr.size())
+	{
+		res.push_back(sum);
+		return;
+	}
+	for (int i = startIndex; i < (int)arr.size() - n +1; i++)
+	{
+		func(arr, i + 1, n - 1, sum + arr[i], res);
+	}
+}
+
+#include <bitset>
+vector<string> readBinaryWatch(int num) {
+	vector<int> hoursAvail({ 1,2,4,8 });
+	vector<int> minutesAvail({ 1,2,4,8,16,32 });
+	vector<int> hours;
+	vector<int> minutes;
+	vector<string> res;
+	
+	//int i = num - (int)minutesAvail.size();
+	//if (i < 0) i = 0;
+	//if (i > hoursAvail.size()) return res;
+	//for (; i <= hoursAvail.size() && i <= num; i++)
+	//{
+	//	func(hoursAvail, 0, i, 0, hours);
+	//	func(minutesAvail, 0, num - i, 0, minutes);
+	//	sort(hours.begin(),hours.end());
+	//	for (int j = 0; j < hours.size(); j++)
+	//		for (int k = 0; k < minutes.size(); k++)
+	//			res.push_back(makeTimeFormat(hours[j], minutes[k]));
+	//	hours.clear();
+	//	minutes.clear();
+	//}
+	
+	for (int i = 0; i < 12; i++)
+	{
+		int restN = num - bitset<4>(i).count();
+		if (restN < 0) continue;
+		for (int j = 0; j < 60; j++)
+		{
+			if (bitset<6>(j).count() == restN)
+			{
+				res.push_back(to_string(i) + (j < 10 ? ":0" : ":") + to_string(j));
+			}
+		}
+	}
+	return res;
+}
+
+#include "gbk.h"
 void ttest()
 {
 	char *path = __FILE__;
@@ -608,7 +808,7 @@ void ttest()
 	unsigned int uNum3 = (unsigned int)number3;
 	int number4 = -0x7FFFFFFF;
 	unsigned int uNum4 = (unsigned int)number4;
-	
+	std::wstring nameW = gbk2uni("¹þ¹þ¹þ");
 	
 	std::cout << number << "->" << (uNum & ~(1<<31))<< std::endl;
 	std::cout << number2 << "->" <<( uNum2 & ~(1 << 31) )<< std::endl;
@@ -685,6 +885,28 @@ void ttest()
 		mergesort2(a5, 1);
 		mergesort2(a1, sizeof(a1) / sizeof(a1[0]));
 		mergesort2(a2, sizeof(a2) / sizeof(a2[0]));
+	}
+
+	{
+		int a1[] = { 10,5,4,-1,-1,7,-1,-1,12,-1,-1};
+		int a2[] = { 10,5,4,-1,7,-1,12 };
+		BinaryTreeNode<int>* root = CreateBTree(a1, sizeof(a1)/sizeof(a1[0]));
+		vector<vector<int>> v = FindPath(root,22);
+		BinaryTreeNode<int>* root2 = CreateBTree(a2, sizeof(a2)/sizeof(a2[0]));
+		vector<vector<int>> v2 = FindPath(root2, 22);
+		vector<int> nums({ 1,2,3 });
+		int step = minMoves(nums);
+		bool res = canConstruct("ab", "b");
+		step += 1;
+		getchar();
+	}
+
+	{
+		vector<string> s = readBinaryWatch(1);
+		for (int i = 0; i < s.size(); i++)
+		{
+			cout << s[i] << " ";
+		}
 	}
 	int a[] = { 1,2,3,4,5,6 };
 	int *p;
