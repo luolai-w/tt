@@ -81,12 +81,12 @@ std::string getStr()
 	return sValue;
 }
 
-#define FALSE 0;
-#define TRUE 1;
-#define OK 1;
-#define ERROR 1;
-#define INIT_SIZE 10;
-#define INCREMENT_SIZE 5;
+#define FALSE 0
+#define TRUE 1
+#define OK 1
+#define ERROR 1
+#define INIT_SIZE 10
+#define INCREMENT_SIZE 5
 typedef int Status;
 typedef int ElementType;
 
@@ -97,7 +97,7 @@ int Compare(const ElementType& e1, const ElementType& e2)
 	else return -1;
 }
 
-namespace sequence_list {
+/*namespace sequence_list {
 	typedef struct {
 		ElementType* data;
 		int length;
@@ -280,7 +280,7 @@ namespace queue {
 
 	}
 };
-
+*/
 template<typename T>
 void quicksort(T a[], int low, int high)
 {
@@ -611,227 +611,6 @@ vector<int> constructRectangle(int area) {
 	res.push_back(less);
 	return res;
 }
-
-void quickSort2(vector<int>& nums, int low, int high)
-{
-	unsigned len = nums.size();
-	if (high >= len) high = len - 1;
-	if (low < 0) low = 0;
-	if (high - low < 1) return;
-	int s = low -1;
-	int tmp = nums[high];
-	unsigned i = low;
-	for (; i < high; i++)
-	{
-		if (nums[i] > tmp)
-		{
-			s++;
-			if (s != i)
-				swap(nums[i], nums[s]);
-		}
-	}
-	s++;
-	swap(nums[s], nums[high]);
-	quickSort2(nums, low, s- 1);
-	quickSort2(nums, s+ 1, high);
-}
-vector<string> findRelativeRanks(vector<int>& nums) {
-	vector<string> medals = { "Gold Medal","Silver Medal","Bronze Medal" };
-	vector<string> ranks(nums.size());
-	//quickSort(nums,0,nums.size() -1);
-	//for(unsigned i = 0; i < nums.size(); i++)
-	//{
-	//    if(i < medals.size()) ranks[i] = medals[i];
-	//    else ranks[i] += (i+1+'0');
-	//}
-	//return ranks; 
-	vector<int> scores(10000, -1);
-	for (unsigned i = 0; i < nums.size(); i++)
-	{
-		scores[nums[i]] = i;
-	}
-	unsigned index = 0;
-	for (int i = scores.size() - 1; i >= 0; i--)
-	{
-		if (scores[i] != -1)
-		{
-			//ranks[index] = i;
-			if (index < medals.size()) ranks[scores[i]] = medals[index];
-			else ranks[scores[i]] += (index + 1 + '0');
-			index++;
-		}
-	}
-
-	return ranks;
-}
-
-
-vector<int> twoSum(vector<int>& numbers, int target) {
-	for (int i = 0; i < numbers.size() - 1; i++)
-	{
-		int start = numbers[i + 1], end = numbers.size() - 1;
-		while (start <= end)
-		{
-			int m = start + (end - start) / 2;
-			if (numbers[m] == target - numbers[i]) return{ i + 1, m +1 };
-			else if (numbers[m] > target - numbers[i]) end = m - 1;
-			else start = m + 1;
-		}
-	}
-	return{};
-
-	//int index1, index2;
-	//int half = target / 2;
-	//index1 = 0;
-	//index2 = numbers.size() - 1;
-	//while (index1 < index2 - 1)
-	//{
-	//	int m = index1 + (index2 - index1) / 2;
-	//	if (numbers[m] <= half)index1 = m;
-	//	if (numbers[m] >= half) index2 = m;
-	//}
-	//if (index1 == index2)
-	//{
-	//	if (index1 == 0) index2 += 1;
-	//	else if (index1 == numbers.size()) index1 -= 1;
-	//	else if (numbers[index1 - 1] == numbers[index1]) index1 -= 1;
-	//	else if (numbers[index1 + 1] == numbers[index1]) index2 += 1;
-	//	else index1 -= 1;
-	//}
-	//while (numbers[index1] + numbers[index2] != target && (index1 > 0 || index2 < numbers.size() - 1))
-	//{
-	//	while (index1 > 0 && numbers[index1] + numbers[index2] > target) index1--;
-	//	while (index2 < numbers.size() - 1 && numbers[index1] + numbers[index2] < target) index2++;
-	//}
-	//return vector<int>({ index1 + 1,index2 + 1 });
-}
-void quickSort(vector<int>& v, int low, int high)
-{
-	int l = low, h = high;
-	if (l < 0)l = 0;
-	if (h >= (int)v.size()) h = v.size() - 1;
-	if (l >= h) return;
-	int tmp = v[h];
-	int s = l - 1;
-	for (unsigned i = l; i < h; i++)
-	{
-		if (v[i] < tmp)
-		{
-			s++;
-			if (s != i)
-				swap(v[i], v[s]);
-		}
-	}
-	s++;
-	if (s != h)
-		swap(v[h], v[s]);
-
-	quickSort(v, l, s - 1);
-	quickSort(v, s + 1, h);
-}
-int findContentChildren(vector<int>& g, vector<int>& s) {
-	int offset = 0;
-	int n = 0;
-	quickSort(g, 0, g.size());
-	quickSort(s, 0, s.size());
-	for (unsigned i = 0; i < g.size(); i++)
-	{
-		int start = offset, end = s.size() - 1;
-		int m = start;
-		while (start <= end)
-		{
-			m = start + (end - start) / 2;
-			//if (s[m] == g[i]) break;
-			if (s[m] >= g[i]) end = m - 1;
-			else
-				start = m + 1;
-		}
-		int index = m >= start ? m : start;
-		if (index < s.size() && s[index] >= g[i])
-		{
-			n++;
-			offset = index + 1;
-		}
-		else return n;
-	}
-	return n;
-}
-
-typedef bool (*IsPre)(int);
-bool IsOdd(int num)
-{
-	return num & 0x01;
-}
-void ReorderOddEven1(int* arr, unsigned len,IsPre IsOdd)
-{
-	if (arr == nullptr || len == 0) return;
-	int l = 0, h = len - 1;
-	while (l < h)
-	{
-		while (l < h && (*IsOdd)(arr[l])) l++;
-		while (l < h && !(*IsOdd)(arr[h])) h--;
-		if (l < h)	swap(arr[l],arr[h]);
-	}
-}
-
-void ReorderOddEven2(int* arr, unsigned len)
-{
-	if (arr == nullptr || len == 0) return;
-	for (int i = -1, j = 0; j < len; j++)
-	{
-		if (arr[j] & 0x01)//odd
-		{
-			i++;
-			if (i != j)
-				swap(arr[i], arr[j]);
-		}
-	}
-}
-
-struct ListNode {
-	int m_nValue;
-	ListNode* m_pNext;
-};
-ListNode* ConstructList(int* arr, unsigned len)
-{
-	if (arr == nullptr || len == 0) return nullptr;
-	ListNode* head = nullptr;
-	ListNode* p = nullptr;
-	for (int i = 0; i < len; i++)
-	{
-		ListNode* node = (ListNode*)malloc(sizeof(ListNode));
-		if (node == nullptr) return head;
-		node->m_nValue = arr[i];
-		node->m_pNext = nullptr;
-		if (p == nullptr)
-		{
-			head = p = node;
-		}
-		else {
-			p->m_pNext = node;
-			p = node;
-		}
-	}
-	return head;
-}
-ListNode* FindKthToTail(ListNode* head, int k)
-{
-	if (head == nullptr || k <= 0) return nullptr;
-	ListNode *p = nullptr, *q = head;
-	int i = 0;
-	while (q != nullptr)
-	{
-		i += 1;
-		if (i == k)
-		{
-			p = head;
-		}
-		if(i > k && p) p = p->m_pNext;
-		q = q->m_pNext;
-	}
-	return p;
-}
-
 
 void quickSort2(vector<int>& nums, int low, int high)
 {
