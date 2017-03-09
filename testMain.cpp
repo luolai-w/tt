@@ -85,6 +85,7 @@ std::string getStr()
 #define TRUE 1
 #define OK 1
 #define ERROR 1
+#define OVERFLOW -1
 #define INIT_SIZE 10
 #define INCREMENT_SIZE 5
 typedef int Status;
@@ -97,55 +98,114 @@ int Compare(const ElementType& e1, const ElementType& e2)
 	else return -1;
 }
 
-/*namespace sequence_list {
+namespace sequence_list {
 	typedef struct {
 		ElementType* data;
 		int length;
 		int size;
+		bool bInited;
 	}SeqList;
 
-	Status InitList(SeqList& L)
-	{
-
-	}
 	Status DestroyList(SeqList& L)
 	{
-
+		if (!L.bInited) return ERROR;
+		free(L.data);
+		L.bInited = false;
+		L.size = 0;
+		L.length = 0;
+		return OK;
+	}
+	Status InitList(SeqList& L)
+	{
+		DestroyList(L);
+		L.data = (ElementType*)malloc(INIT_SIZE * sizeof(ElementType));
+		if (L.data == nullptr) return ERROR;
+		L.length = 0;
+		L.size = INIT_SIZE;
+		L.bInited = TRUE;
 	}
 	Status ClearList(SeqList& L)
 	{
-
+		if (!L.bInited) return ERROR;
+		L.length = 0;
+		L.size = 0;
+		return OK;
 	}
 	bool IsEmpty(const SeqList& L) {
-
+		if (!L.bInited) return true;
+		return L.length > 0;
 	}
 	size_t GetLength(const SeqList& L)
 	{
-
+		if (!L.bInited) return 0;
+		return L.length;
 	}
 	Status GetElement(const SeqList& L, int index, ElementType& e)
 	{
-
+		if (!L.bInited) return ERROR;
+		if (index < 1 || index > L.length) return ERROR;
+		e = *(L.data + index);
+		return OK;
 	}
 	Status InsertElement(SeqList& L, int index, const ElementType& e)
 	{
-
-	}
-	Status DeleteElement(SeqList& L, const ElementType& e)
-	{
-
+		if (!L.bInited) return ERROR;
+		if (index < 1 || index > L.length + 1) return ERROR;
+		if (L.length >= L.size)
+		{
+			ElementType* newPtr = (ElementType*)realloc(L.data, INCREMENT_SIZE * sizeof(ElementType));
+			if (newPtr == nullptr) return ERROR;
+			L.data = newPtr;
+			L.size += INCREMENT_SIZE;
+		}
+		int j = L.length;
+		while (j >= index)
+		{
+			*(L.data + j) = *(L.data + j - 1);
+			j--;
+		}
+		*(L.data + j) = e;
+		L.length += 1;
+		return OK;
 	}
 	int FindElement(const SeqList& L, const ElementType& e, int (*compare)(const ElementType&,const ElementType&))
 	{
-
+		if (!L.bInited) return OVERFLOW;
+		for (int i = 0; i < L.length; i++)
+		{
+			if (!compare(*(L.data + i), e)) return i+1;
+		}
+		return OVERFLOW;
+	}
+	Status DeleteElement(SeqList& L, const ElementType& e)
+	{
+		if (!L.bInited) return ERROR;
+		int index = FindElement(L, e, Compare);
+		if (index == OVERFLOW) return ERROR;
+		for (int i = index - 1; i < L.length - 1; i++)
+		{
+			*(L.data + i) = *(L.data + i + 1);
+		}
+		L.length -= 1;
+		return OK;
 	}
 	Status PreElement(const SeqList& L, const ElementType& curr, ElementType& e)
 	{
-
+		if (!L.bInited) return ERROR;
+		int index = FindElement(L, curr, Compare);
+		if (index == OVERFLOW) return ERROR;
+		if (index <= 1 || index > L.length) return ERROR;
+		e = *(L.data + (index - 1) -1);
+		return OK;
 	}
 	Status NextElement(const SeqList& L, const ElementType& curr, ElementType& e)
 	{
-
+		if (!L.bInited) return ERROR;
+		int index = FindElement(L, curr, Compare);
+		if (index == OVERFLOW) return ERROR;
+		if (index < 1 || index >= L.length) return ERROR;
+		e = *(L.data + (index -1) + 1);
+		return OK;
 	}
 };
 namespace link_list{
@@ -154,52 +214,159 @@ namespace link_list{
 		struct LNode* next;
 	}LNode, *LinkList;
 
-	Status InitQueue(LinkList* L)
+	Status DestroyList(LinkList* L)
 	{
-
+		if (!L) return ERROR;
+		LinkList p = *L;
+		while (p)
+		{
+			LinkList q = p;
+			p = p->next;
+			free(q);
+		}
+		*L = nullptr;
+		return OK;
 	}
-	Status DestroyQueue(LinkList L)
+	Status InitList(LinkList* L)
 	{
-
+		if (L == nullptr) return ERROR;
+		DestroyList(L);
+		LinkList p = (LinkList)malloc(sizeof(LNode));
+		p->next = nullptr;
+		*L = p;
+		return OK;
 	}
-	Status ClearQueue(LinkList L)
+	Status ClearList(LinkList L)
 	{
-
+		if (!L) return ERROR;
+		if(L->next)
+		DestroyList(&(L->next));
+		L->next = nullptr;
+		return OK;
 	}
 	bool IsEmpty(LinkList L)
 	{
-
+		if (!L) return true;
+		return L->next != nullptr;
 	}
 	size_t GetLength(LinkList L)
 	{
-
+		if (!L) return ERROR;
+		LinkList p = L->next;
+		size_t i = 0;
+		while (p)
+		{
+			i++;
+			p = p->next;
+		}
+		return i;
 	}
 	Status GetElement(LinkList L, int index, ElementType& e)
 	{
-
+		if (!L || index < 1) return ERROR;
+		int i = 0;
+		LinkList p = L->next;
+		while (p)
+		{
+			if (++i == index) {
+				e = p->data;
+				return OK;
+			}
+			p = p->next;
+		}
+		return ERROR;
 	}
 	Status InsertElement(LinkList L, int index, const ElementType& e)
 	{
-
+		if (!L) return ERROR;
+		LinkList q = (LinkList)malloc(sizeof(LNode));
+		q->data = e;
+		q->next = nullptr;
+		if (!q) return ERROR;
+		LinkList p = L;
+		int i = 0;
+		while (p)
+		{
+			if (++i == index)
+			{
+				q->next = p->next;
+				p->next = q;
+				return OK;
+			}
+			p = p->next;
+		}
+		return OK;
 	}
 	Status DeleteElement(LinkList L, const ElementType& e)
 	{
-
+		if (!L) return ERROR;
+		LinkList p = L;
+		while (p)
+		{
+			LinkList q = p->next;
+			if (q->data == e)
+			{
+				p->next = q->next;
+				free(q);
+				return OK;
+			}
+			p = p->next;
+		}
+		return ERROR;
 	}
 	int FindElement(LinkList L, const ElementType& e, int (*compare)(const ElementType&,const ElementType&))
 	{
-
+		if (!L) return OVERFLOW;
+		LinkList p = L->next;
+		int i = 0;
+		while (p)
+		{
+			i += 1;
+			if (p->data == e) return i;
+			p = p->next;
+		}
+		return OVERFLOW;
 	}
 	Status PreElement(LinkList L, const ElementType& curr, ElementType& e)
 	{
-
+		if (!L) return ERROR;
+		LinkList p = L->next;
+		if (p->data == curr) return ERROR;
+		while (p->next)
+		{
+			LinkList q = p->next;
+			if (q->data == curr)
+			{
+				e = p->data;
+				return OK;
+			}
+			p = q;
+		}
+		return ERROR;
 	}
 	Status NextElement(LinkList L, const ElementType& curr, ElementType& e)
 	{
-
+		if (!L) return ERROR;
+		LinkList p = L->next;
+		while (p)
+		{
+			LinkList q = p->next;
+			if (p->data == curr)
+			{
+				if (q != nullptr)
+				{
+					e = q->data;
+					return OK;
+				}
+				return ERROR;
+			}
+			p = q;
+		}
+		return ERROR;
 	}
 };
-namespace stack {
+/*
+namespace sequence_stack {
 	typedef struct {
 		ElementType* base;
 		ElementType* top;
@@ -238,7 +405,7 @@ namespace stack {
 
 	}
 };
-namespace queue {
+namespace link_queue {
 	typedef struct QNode {
 		ElementType* data;
 		struct LNode* next;
@@ -1048,6 +1215,104 @@ void ttest()
 		std::cout << "AA: " << sizeof(AA) << std::endl;
 		std::cout << "a: " << sizeof(a) << std::endl;
 		std::cout << "a.b: " << sizeof(a.b) << std::endl;
+	}
+	{
+		using namespace link_list;
+		LinkList L = nullptr;
+		InitList(&L);
+		ElementType e;
+		int i;
+		if (L)
+		{
+			printf("init success\n");
+		}
+
+		if (IsEmpty(L))
+		{
+			printf("list is empty\n");
+		}
+
+		for (i = 0; i < 10; i++)
+		{
+			InsertElement(L, i + 1, i);
+		}
+
+		if (GetElement(L, 1, e)) {
+			printf("The first element is %d\n", e);
+		}
+
+		printf("length is %d\n", GetLength(L));
+
+		printf("The 5 at %d\n", FindElement(L, 5, Compare));
+
+		PreElement(L, 6, e);
+		printf("The 6's previous element is %d\n", e);
+
+		NextElement(L, 6, e);
+		printf("The 6's next element is %d\n", e);
+
+		DeleteElement(L,e);
+		printf("delete first element is %d\n", e);
+
+		printf("list:");
+		int v;
+		for (int i = 0; i < GetLength(L); i++)
+		{
+			GetElement(L, i + 1, v);
+			printf("%d,", v);
+		}
+		DestroyList(&L);
+		if (!L) {
+			printf("\ndestroy success\n");
+		}
+	}
+	{
+		using namespace sequence_list;
+		SeqList L = {0};
+		if (InitList(L))
+		{
+			ElementType e;
+			printf("init_success\n");
+			int i;
+			for (i = 0; i < 10; i++)
+			{
+				InsertElement(L, i + 1, i);
+			}
+			printf("length is %d\n", GetLength(L));
+			if (GetElement(L, 1, e)) {
+				printf("The first element is %d\n", e);
+			}
+			else
+			{
+				printf("element is not exist\n");
+			}
+			if (IsEmpty(L))
+			{
+				printf("list is empty\n");
+			}
+			else
+			{
+				printf("list is not empty\n");
+			}
+			printf("The 5 at %d\n", FindElement(L, 5, Compare));
+			PreElement(L, 6, e);
+			printf("The 6's previous element is %d\n", e);
+			NextElement(L, 6, e);
+			printf("The 6's next element is %d\n", e);
+			DeleteElement(L,e);
+			printf("delete first element is %d\n", e);
+			printf("list:");
+			int v;
+			for (int i = 0; i < GetLength(L); i++)
+			{
+				GetElement(L, i + 1, v);
+				printf("%d,", v);
+			}
+			if (DestroyList(L))
+			{
+				printf("\ndestroy_success\n");
+			}
+		}
 	}
 	{
 		int a1[] = { 11,22,13,34,25,6 };
