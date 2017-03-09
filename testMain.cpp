@@ -81,6 +81,206 @@ std::string getStr()
 	return sValue;
 }
 
+#define FALSE 0
+#define TRUE 1
+#define OK 1
+#define ERROR 1
+#define INIT_SIZE 10
+#define INCREMENT_SIZE 5
+typedef int Status;
+typedef int ElementType;
+
+int Compare(const ElementType& e1, const ElementType& e2)
+{
+	if (e1 == e2) return 0;
+	else if (e1 > e2) return 1;
+	else return -1;
+}
+
+/*namespace sequence_list {
+	typedef struct {
+		ElementType* data;
+		int length;
+		int size;
+	}SeqList;
+
+	Status InitList(SeqList& L)
+	{
+
+	}
+	Status DestroyList(SeqList& L)
+	{
+
+	}
+	Status ClearList(SeqList& L)
+	{
+
+	}
+	bool IsEmpty(const SeqList& L) {
+
+	}
+	size_t GetLength(const SeqList& L)
+	{
+
+	}
+	Status GetElement(const SeqList& L, int index, ElementType& e)
+	{
+
+	}
+	Status InsertElement(SeqList& L, int index, const ElementType& e)
+	{
+
+	}
+	Status DeleteElement(SeqList& L, const ElementType& e)
+	{
+
+	}
+	int FindElement(const SeqList& L, const ElementType& e, int (*compare)(const ElementType&,const ElementType&))
+	{
+
+	}
+	Status PreElement(const SeqList& L, const ElementType& curr, ElementType& e)
+	{
+
+	}
+	Status NextElement(const SeqList& L, const ElementType& curr, ElementType& e)
+	{
+
+	}
+};
+namespace link_list{
+	typedef struct LNode {
+		ElementType data;
+		struct LNode* next;
+	}LNode, *LinkList;
+
+	Status InitQueue(LinkList* L)
+	{
+
+	}
+	Status DestroyQueue(LinkList L)
+	{
+
+	}
+	Status ClearQueue(LinkList L)
+	{
+
+	}
+	bool IsEmpty(LinkList L)
+	{
+
+	}
+	size_t GetLength(LinkList L)
+	{
+
+	}
+	Status GetElement(LinkList L, int index, ElementType& e)
+	{
+
+	}
+	Status InsertElement(LinkList L, int index, const ElementType& e)
+	{
+
+	}
+	Status DeleteElement(LinkList L, const ElementType& e)
+	{
+
+	}
+	int FindElement(LinkList L, const ElementType& e, int (*compare)(const ElementType&,const ElementType&))
+	{
+
+	}
+	Status PreElement(LinkList L, const ElementType& curr, ElementType& e)
+	{
+
+	}
+	Status NextElement(LinkList L, const ElementType& curr, ElementType& e)
+	{
+
+	}
+};
+namespace stack {
+	typedef struct {
+		ElementType* base;
+		ElementType* top;
+		int size;
+	}SeqStack;
+	Status InitStack(SeqStack& S)
+	{
+
+	}
+	Status DestroyStack(const SeqStack& S)
+	{
+
+	}
+	Status ClearStack(const SeqStack& S)
+	{
+
+	}
+	bool IsEmpty(const SeqStack& S)
+	{
+
+	}
+	size_t GetLength(const SeqStack& S)
+	{
+
+	}
+	Status Top(const SeqStack& S, ElementType& e)
+	{
+
+	}
+	Status Push(SeqStack& S, const ElementType& e)
+	{
+
+	}
+	Status Pop(SeqStack& S)
+	{
+
+	}
+};
+namespace queue {
+	typedef struct QNode {
+		ElementType* data;
+		struct LNode* next;
+	}QNode,*QNodePtr;
+	typedef struct {
+		QNode* front;
+		QNode* tail;
+	}LinkQueue;
+	Status InitQueue(LinkQueue& Q)
+	{
+
+	}
+	Status DestroyQueue(const LinkQueue& Q)
+	{
+
+	}
+	Status ClearQueue(const LinkQueue& Q)
+	{
+
+	}
+	bool IsEmpty(const LinkQueue& Q)
+	{
+
+	}
+	size_t GetLength(const LinkQueue& Q)
+	{
+
+	}
+	Status Front(const LinkQueue& Q)
+	{
+
+	}
+	Status Push(LinkQueue& Q, const ElementType& e)
+	{
+
+	}
+	Status Pop(LinkQueue& Q)
+	{
+
+	}
+};
+*/
 template<typename T>
 void quicksort(T a[], int low, int high)
 {
@@ -907,6 +1107,13 @@ void ttest()
 		{
 			cout << s[i] << " ";
 		}
+	}
+	{
+		vector<int> a({ 1,2,3,4,5 });
+		vector<int>::iterator i = (++(a.rbegin())).base();
+		--i;
+		i -= 2;
+		i++;
 	}
 	int a[] = { 1,2,3,4,5,6 };
 	int *p;
