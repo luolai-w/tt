@@ -1015,20 +1015,40 @@ void ttest()
 	std::cout << number3 << "->" << uNum3 << std::endl;
 	std::cout << number4 << "->" << (uNum4 & ~(1 << 31)) << std::endl;
 	
-
-	typedef struct bb
 	{
-		
-		char c;             //[0]....[0]		有效对齐1
-		int id;             //[4]....[7]		有效对齐4
-		
-		int id2;			//[8]....[11]		有效对齐4
-		double weight;      //[16].....[23]　　　　　　原则１ 有效对齐8
-		//float height;      //[16]..[19],总长要为８的整数倍,补齐[20]...[23]　　　　　原则３
-		char c2;			//[24]....[24]		有效对齐 1
-	}BB;		//[0]....[31] 整体有效对齐 8
+		/*
+		关于有效对齐
+		1.指定对齐值与自身对有效对齐值取小的那个
+		2.类或结构体自身有效对齐值取成员中最大的成员自身有效对齐值
+		3.起始地址%有效对齐值 == 0
+		*/
+		typedef struct bb
+		{
 
-	std::cout << "BB: " << sizeof(BB) << std::endl;
+			char c;             //[0]....[0]		有效对齐1
+			int id;             //[4]....[7]		有效对齐4
+
+			int id2;			//[8]....[11]		有效对齐4
+			double weight;      //[16].....[23]　　　　　　原则１ 有效对齐8
+			//float height;      //[16]..[19],总长要为８的整数倍,补齐[20]...[23]　　　　　原则３
+			char c2;			//[24]....[24]		有效对齐 1
+		}BB;		//[0]....[31] 整体有效对齐 8
+
+		typedef struct aa {
+			int n1;//[0]-[3]
+			//int n2;//[4]-[7]
+			BB b;//[8]-[39]	有效对齐8
+			int n3;//[40]-[43]
+			char c1;//[44]-[44]
+		}AA;//[0]-[47]
+		BB b;
+		AA a;
+		std::cout << "BB: " << sizeof(BB) << std::endl;
+		std::cout << "b: " << sizeof(b) << std::endl;
+		std::cout << "AA: " << sizeof(AA) << std::endl;
+		std::cout << "a: " << sizeof(a) << std::endl;
+		std::cout << "a.b: " << sizeof(a.b) << std::endl;
+	}
 	{
 		int a1[] = { 11,22,13,34,25,6 };
 		int a2[] = { 1,2,3,4,5,6 };
